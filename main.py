@@ -1,6 +1,7 @@
 from magi.melchior import Melchior
 from magi.balthasar import Balthasar
 from magi.casper import Casper
+from magi.consensus import ConsensusEngine
 
 
 def boot():
@@ -19,12 +20,21 @@ def main():
     melchior = Melchior()
     balthasar = Balthasar()
     casper = Casper()
-
+    consensus = ConsensusEngine()
+    
     question = input("Question > ")
 
-    print(melchior.think(question))
-    print(balthasar.think(question))
-    print(casper.think(question))
+    responses = {
+        "Melchior": melchior.think(question),
+        "Balthasar": balthasar.think(question),
+        "Casper": casper.think(question)
+    }
+
+    for response in responses.values():
+        print(response)
+    
+    final_answer = consensus.decide(responses)
+    print(final_answer)
 
 
 if __name__ == "__main__":
