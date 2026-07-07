@@ -1,6 +1,9 @@
 import os
+from pathlib import Path
+
 from dotenv import load_dotenv
 from openai import OpenAI
+
 
 load_dotenv()
 
@@ -12,11 +15,26 @@ class Melchior:
         self.client = OpenAI(
             api_key=os.getenv("OPENAI_API_KEY")
         )
-
+        with open(
+            Path(__file__).parent.parent / "prompts" / "melchior.txt",
+            "r",
+            encoding="utf-8"
+        ) as f:
+            self.persona = f.read()
+    
     def think(self, question):
-        response = self.client.responses.create(
+
+        prompt = f"""
+    {self.persona}
+
+    Question:
+
+    {question}
+    """
+
+        result = self.client.responses.create(
             model="gpt-5.5",
-            input=question
+            input=prompt
         )
 
-        return f"[{self.name}]\n{response.output_text}"
+        return f"[{self.name}]\n{result.output_text}"
