@@ -206,3 +206,16 @@ Completed:
 Project Status:
 
 **Actively under development**
+## Local memory and portfolio ledger
+
+Completed analyses now append to the local SQLite database at `data/magi.db`.
+MAGI retrieves up to three recent matching analyses as untrusted historical context;
+its final action still comes exclusively from fresh deterministic two-of-three voting.
+Storage failures do not invalidate that action.
+
+A Python portfolio service records manually supplied BUY/SELL transactions and derives
+holdings, weighted-average book cost, and realized/unrealized analytics with Decimal.
+It does not execute trades or fetch market prices. This is not tax-lot accounting.
+
+See [the memory and portfolio guide](docs/memory-portfolio.md) for the complete schema,
+service examples, accounting definitions, security boundaries, and offline test command.

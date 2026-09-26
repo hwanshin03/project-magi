@@ -3,15 +3,21 @@ import os
 from dotenv import load_dotenv
 from google import genai
 
-load_dotenv()
 
-client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY")
-)
+def main():
+    load_dotenv()
 
-response = client.models.generate_content(
-    model="gemini-2.5-flash",
-    contents="Say hello to Hwan in one sentence."
-)
+    client = genai.Client(
+        api_key=os.getenv("GEMINI_API_KEY")
+    )
 
-print(response.text)
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents="Say hello to Hwan in one sentence."
+    )
+
+    print(response.text)
+
+
+if __name__ == "__main__":
+    main()

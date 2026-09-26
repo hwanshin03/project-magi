@@ -1,20 +1,28 @@
-from email.mime import message
 import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 from anthropic import Anthropic
+from magi.provider import TIMEOUT_SECONDS, call_provider
+from magi.history import agent_request
+from magi.decision import parse_decision, provider_failure
 
 
 load_dotenv()
 
 
 class Casper:
+    provider = "Anthropic"
+    model = "claude-sonnet-4-6"
+
     def __init__(self):
+        self.historical_context = ''
         self.name = "Casper"
 
         self.client = Anthropic(
-            api_key=os.getenv("ANTHROPIC_API_KEY")
+            api_key=os.getenv("ANTHROPIC_API_KEY"),
+            timeout=TIMEOUT_SECONDS,
+            max_retries=0,
         )
         with open(
             Path(__file__).parent.parent / "prompts" / "casper.txt",
@@ -26,23 +34,23 @@ class Casper:
 
     def think(self, question):
 
-        prompt = f"""
-    {self.persona}
+        prompt, instructions = agent_request(self.persona, question, self.historical_context)
 
-    Question:
-
-    {question}
-    """
-
-        message = self.client.messages.create(
-            model="claude-sonnet-4-6",
+        message = call_provider(self.provider, lambda: self.client.messages.create(
+            model=self.model,
             max_tokens=1000,
+            system=instructions,
             messages=[
                 {
                     "role": "user",
                     "content": prompt
                 }
             ]
-        )
+        ))
 
-        return f"[{self.name}]\n{message.content[0].text}"
+        failure = provider_failure(message, self.name, self.provider, self.model)
+        if failure is not None:
+            return failure
+
+        text = "".join(getattr(block, "text", "") for block in (getattr(message, "content", None) or []))
+        return parse_decision(text, self.name, self.provider, self.model)

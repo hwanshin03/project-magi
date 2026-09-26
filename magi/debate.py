@@ -1,3 +1,6 @@
+from magi.decision import reconcile_result
+
+
 class DebateEngine:
     def __init__(self):
         self.name = "Debate Engine"
@@ -29,24 +32,13 @@ Your task:
 1. Review the other agents' arguments.
 2. Identify stronger points from other agents.
 3. Identify remaining disagreements.
-4. Decide whether your position changed.
-5. Produce your revised final position.
+4. You may change your position after reviewing the others, or keep it.
+5. Produce your revised position, confidence, full reasoning, risks, and evidence gaps.
+Include stronger points and remaining disagreements in your reasoning.
+STALE responses are earlier answers, not fresh endorsements. UNAVAILABLE responses
+contain no position. Do not interpret missing answers as agreement or disagreement.
+The application computes changed_position by comparing validated positions.
 
-Format your answer exactly like this:
-
-[{agent.name} Debate Review - Round {round_number}]
-
-Stronger Points From Other Agents:
-- ...
-
-Remaining Disagreements:
-- ...
-
-Changed Position:
-YES or NO
-
-Revised Final Position:
-...
 """
 
         return agent.think(debate_prompt)
@@ -55,12 +47,13 @@ Revised Final Position:
         next_responses = {}
 
         for agent in agents:
-            next_responses[agent.name] = self.challenge(
+            result = self.challenge(
                 agent=agent,
                 question=question,
                 responses=current_responses,
                 round_number=round_number
             )
+            next_responses[agent.name] = reconcile_result(result, current_responses[agent.name])
 
         return next_responses
 
@@ -82,4 +75,3 @@ Revised Final Position:
             })
 
         return all_rounds
-

@@ -3,17 +3,26 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from openai import OpenAI
+from magi.provider import TIMEOUT_SECONDS, call_provider
+from magi.history import agent_request
+from magi.decision import parse_decision, provider_failure
 
 
 load_dotenv()
 
 
 class Melchior:
+    provider = "OpenAI"
+    model = "gpt-5.5"
+
     def __init__(self):
+        self.historical_context = ''
         self.name = "Melchior"
 
         self.client = OpenAI(
-            api_key=os.getenv("OPENAI_API_KEY")
+            api_key=os.getenv("OPENAI_API_KEY"),
+            timeout=TIMEOUT_SECONDS,
+            max_retries=0,
         )
         with open(
             Path(__file__).parent.parent / "prompts" / "melchior.txt",
@@ -24,17 +33,17 @@ class Melchior:
     
     def think(self, question):
 
-        prompt = f"""
-    {self.persona}
+        prompt, instructions = agent_request(self.persona, question, self.historical_context)
 
-    Question:
-
-    {question}
-    """
-
-        result = self.client.responses.create(
-            model="gpt-5.5",
+        result = call_provider(self.provider, lambda: self.client.responses.create(
+            model=self.model,
+            instructions=instructions,
             input=prompt
-        )
+        ))
 
-        return f"[{self.name}]\n{result.output_text}"
+        failure = provider_failure(result, self.name, self.provider, self.model)
+        if failure is not None:
+            return failure
+
+        text = getattr(result, "output_text", None)
+        return parse_decision(text, self.name, self.provider, self.model)

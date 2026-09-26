@@ -1,3 +1,13 @@
 .env
 __pycache__/
 *.pyc
+.venv/
+.DS_Store
+
+# Local analysis memory and portfolio ledger (including SQLite sidecars)
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
