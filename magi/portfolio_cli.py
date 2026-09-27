@@ -100,6 +100,7 @@ def build_parser():
         command.add_argument('--asset-name', help='optional descriptive name')
         command.add_argument('--note', default='', help='optional entry/sale rationale')
         command.add_argument('--run-id', help='optional existing MAGI analysis run ID')
+    actions.add_parser('live', help='explicit read-only live valuation; use portfolio live --help')
     show = actions.add_parser('show', help='show a position; no prices are fetched')
     show.add_argument('symbol')
     _identity_options(show)
@@ -286,6 +287,10 @@ def _run(args, portfolio):
 
 
 def main(argv=None, *, portfolio=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if list(argv[:2]) == ['portfolio', 'live']:
+        from magi.portfolio_live_cli import main as live_main
+        return live_main(argv[2:], portfolio=portfolio)
     args = build_parser().parse_args(argv)
     try:
         _account_filters(args)

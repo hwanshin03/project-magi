@@ -297,3 +297,10 @@ Original purchase dates, fees and historical BUYs are never invented. Existing b
 requests remain read-only; no order endpoint or automatic import is added.
 See the [opening-balance guide](docs/opening-balances.md) for migration, accounting,
 confirmation, duplicate protection and the manual-history alternative.
+
+### Live portfolio valuation
+
+Phase 6E adds `python main.py portfolio live` with English/Korean display, native
+currency totals, optional USD/KRW conversion, and read-only broker reconciliation.
+See [live portfolio documentation](docs/live-portfolio.md) for syntax, history
+semantics, stale-data behavior, and presentation-only dust thresholds.
