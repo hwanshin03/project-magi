@@ -239,3 +239,22 @@ arguments still starts the normal MAGI analysis workflow.
 
 See the [Portfolio CLI guide](docs/portfolio-cli.md) for complete options, examples,
 analysis-run linking, and error behavior.
+
+## Read-only market data (Phase 6A)
+
+An opt-in provider-independent market layer supports Toss US/Korean quotes, daily
+and one-minute candles, and directional USD/KRW FX. Set `TOSS_CLIENT_ID` and
+`TOSS_CLIENT_SECRET` in your environment or local `.env`; never commit their values.
+
+```sh
+python main.py market quote NVDA --market US
+python main.py market quote 005930 --market KR
+python main.py market fx USD KRW
+python main.py market history NVDA --market US --days 30
+python main.py market candles NVDA --market US --interval 1m
+```
+
+These commands make live read-only requests. Normal analysis and portfolio commands
+retain their existing behavior. No accounts or orders are accessed. See
+[market data documentation](docs/market-data.md) for schemas, cache/staleness,
+optional portfolio valuation, offline tests, and first-request review notes.
