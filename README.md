@@ -304,3 +304,9 @@ Phase 6E adds `python main.py portfolio live` with English/Korean display, nativ
 currency totals, optional USD/KRW conversion, and read-only broker reconciliation.
 See [live portfolio documentation](docs/live-portfolio.md) for syntax, history
 semantics, stale-data behavior, and presentation-only dust thresholds.
+
+### Research evidence foundation
+
+Phase 7A adds offline, immutable research sources, evidence, claims, citation
+validation, bounded views, and versioned JSON snapshots. It does not fetch research
+or change agent decisions. See [research foundation](docs/research-foundation.md).
