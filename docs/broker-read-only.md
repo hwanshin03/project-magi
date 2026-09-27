@@ -114,7 +114,8 @@ issuers. No refresh token is persisted and no broker credentials enter SQLite.
 Toss accountNo is discarded during normalization; even its last digits are not retained.
 Only accountSeq is kept in memory as the necessary internal account_id. Its dataclass
 repr is hidden. Do not serialize internal account references for public presentation.
-CLI output uses `Account 1 [identifier masked]`, not accountNo or accountSeq. Types
+CLI output uses `Account 1 [identifier masked]`, not accountNo or accountSeq.
+Account discovery also displays a derived opaque local portfolio reference. Types
 are provider enums; account names and base currencies remain None when absent.
 No raw broker responses, authorization headers, tokens, or full account numbers are
 logged. Holdings themselves are sensitive financial information: the explicit CLI
@@ -141,14 +142,14 @@ normal MAGI analysis, the Portfolio CLI, or Market CLI control flow.
 snapshots. It never calls transaction-writing methods. CLI loads the existing ledger
 using a dedicated SQLite `mode=ro`, `query_only` connection, with no schema creation
 or migration. A missing or unreadable ledger is UNAVAILABLE; it is not created or
-assumed empty. The ledger must already have schema version 1.
+assumed empty. The ledger must already have schema version 2; local Database initialization migrates v1.
 
-Identity is **symbol + market + currency**. Closed/zero positions are omitted.
+Identity is **provider + safe account reference + symbol + market + currency**. Closed/zero positions are omitted.
 Duplicates, unknown market mappings, and inconsistent broker account references are
 AMBIGUOUS rather than silently combined. Explicitly different markets/currencies
-remain separate. Comparison is for one selected broker account against the entire
-local ledger: the ledger has no account dimension. Choose an account whose scope
-matches your ledger; this phase does not infer an account allocation.
+remain separate. Comparison is limited to the matching local provider/account pair; manual and other
+account positions are ignored. See [Phase 6C](account-aware-portfolio.md) for migration,
+opaque local references, and broker-only previews without inferred transactions.
 
 For each identity, the result includes both quantities and average costs, differences
 (broker minus MAGI), cost_comparable, and status:

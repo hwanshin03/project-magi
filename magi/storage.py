@@ -36,7 +36,7 @@ def check_sensitive(value):
     """Reject, rather than silently alter, records containing known secrets."""
     try:
         secrets = [v for k, v in os.environ.items() if v and re.search(
-            r'API_KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|PRIVATE_KEY|AUTH', k, re.I)]
+            r'API_KEY|CLIENT_ID|TOKEN|SECRET|PASSWORD|CREDENTIAL|PRIVATE_KEY|AUTH', k, re.I)]
         if ENV_PATH.exists():
             values = dotenv_values(stream=io.StringIO(ENV_PATH.read_text(encoding='utf-8')))
             secrets.extend(v for v in values.values() if v)
@@ -78,11 +78,35 @@ class Database:
         except OSError:
             raise StorageError('Memory database initialization failed.') from None
         with self.connect() as connection:
-            version = connection.execute('PRAGMA user_version').fetchone()[0]
-            if version not in (0, 1):
-                raise StorageError('Unsupported memory schema version.')
-            schema = Path(__file__).with_name('schema.sql').read_text(encoding='utf-8')
-            connection.executescript('BEGIN IMMEDIATE;\n' + schema + '\nCOMMIT;')
+            try:
+                # Lock before reading the version; concurrent openers cannot race.
+                connection.execute('BEGIN IMMEDIATE')
+                version = connection.execute('PRAGMA user_version').fetchone()[0]
+                if version not in (0, 1, 2):
+                    raise StorageError('Unsupported memory schema version.')
+                if version == 0:
+                    if connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").fetchone():
+                        raise StorageError('Portfolio database migration failed.')
+                    self._execute_schema(connection, Path(__file__).with_name('schema.sql'))
+                elif version == 1:
+                    self._execute_schema(connection, Path(__file__).with_name('migrations') / '002_accounts.sql')
+                if connection.execute('PRAGMA foreign_key_check').fetchone():
+                    raise StorageError('Portfolio database migration failed.')
+            except (sqlite3.Error, OSError):
+                raise StorageError('Portfolio database migration failed.') from None
+
+    @staticmethod
+    def _execute_schema(connection, path):
+        # executescript implicitly commits a pending transaction: execute complete
+        # statements individually so DDL, version and indexes roll back together.
+        statement = ''
+        for line in path.read_text(encoding='utf-8').splitlines(True):
+            statement += line
+            if sqlite3.complete_statement(statement):
+                connection.execute(statement)
+                statement = ''
+        if statement.strip():
+            raise StorageError('Portfolio database migration failed.')
 
     @contextmanager
     def connect(self):

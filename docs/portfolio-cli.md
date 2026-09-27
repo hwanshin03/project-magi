@@ -222,3 +222,11 @@ Before adding market data, review the USD default on read commands, exact Decima
 shortened display preferences, UTC date conventions, execution-time meaning of recent,
 and explicit market selection. Live prices must remain a separate service; this CLI
 contains no quote retrieval or trading functionality.
+
+## Phase 6C account selection
+
+Buy/sell/show/history default to MANUAL/DEFAULT. Supply both `--broker` and
+`--account` for a broker-scoped position. List/recent display all accounts as separate
+rows by default and support the same filters or `--all-accounts`. `portfolio accounts`
+lists only accounts in the local ledger. See the [account-aware guide](account-aware-portfolio.md)
+for complete syntax, safe references, migration, and unified Python views.

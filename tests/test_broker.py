@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import httpx
+from magi.accounts import PortfolioAccountIdentity
 from magi.toss import TossSession
 from magi.market.toss import TossProvider
 from magi.market.models import ErrorCode, FXRate, MarketResult, Quote
@@ -107,7 +108,8 @@ class BrokerTests(unittest.TestCase):
 
     def position(self, symbol='NVDA', market='US', currency='USD', quantity='10', cost='180'):
         portfolio,_=self.portfolio()
-        portfolio.record_transaction(symbol,'BUY',quantity,cost,market=market,currency=currency)
+        portfolio.record_transaction(symbol,'BUY',quantity,cost,market=market,currency=currency,
+            broker_provider='TOSS',broker_account_ref=PortfolioAccountIdentity.from_broker(account()).account_ref)
         return portfolio.get_position(symbol)
 
     def reconcile(self, positions, rows):
@@ -296,7 +298,8 @@ class BrokerTests(unittest.TestCase):
 
     def test_readonly_reconcile_preserves_db_bytes_and_rows(self):
         portfolio,path=self.portfolio()
-        portfolio.record_transaction('NVDA','BUY','10','180',currency='USD',market='US')
+        portfolio.record_transaction('NVDA','BUY','10','180',currency='USD',market='US',
+            broker_provider='TOSS',broker_account_ref=PortfolioAccountIdentity.from_broker(account()).account_ref)
         before=path.read_bytes(); transactions=portfolio.get_transactions()
         readonly=Portfolio(ReadOnlyLedgerDatabase(path))
         service=self.service([auth(),accounts(),holdings(item())])
@@ -486,7 +489,8 @@ class BrokerTests(unittest.TestCase):
 
     def test_reconciliation_fee_difference_is_observation(self):
         portfolio,_=self.portfolio()
-        portfolio.record_transaction('NVDA','BUY','10','180',fees='1',currency='USD',market='US')
+        portfolio.record_transaction('NVDA','BUY','10','180',fees='1',currency='USD',market='US',
+            broker_provider='TOSS',broker_account_ref=PortfolioAccountIdentity.from_broker(account()).account_ref)
         result=self.reconcile([portfolio.get_position('NVDA')],[holding()])
         self.assertEqual(result.rows[0].status,Status.COST_MISMATCH)
         self.assertEqual(result.rows[0].cost_difference,Decimal('-.1'))

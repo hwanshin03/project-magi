@@ -1,4 +1,4 @@
-# Local memory and portfolio ledger v1
+# Local memory and portfolio ledger
 
 MAGI stores completed analysis snapshots and manually recorded trades locally in
 `data/magi.db`, resolved relative to the repository rather than the working directory.
@@ -10,13 +10,14 @@ No new third-party dependencies are needed.
 
 The **complete executable schema**, including every column, constraint, index, and
 append-only trigger, is [`magi/schema.sql`](../magi/schema.sql). `PRAGMA user_version`
-is 1. Unknown schema versions are rejected, not reset or automatically rewritten.
+is 2. Version 1 migrates transactionally to MANUAL/DEFAULT; see the
+[account-aware ledger guide](account-aware-portfolio.md). Unknown schema versions are rejected, not reset or automatically rewritten.
 
 | Table | Columns |
 | --- | --- |
 | `analysis_runs` | `run_id` TEXT primary key; `timestamp` TEXT; `question` TEXT; `final_action` TEXT; `voting_version` TEXT (`2of3-v1`); `voting_json` TEXT; `explanation` nullable TEXT |
 | `analysis_agents` | `run_id` TEXT foreign key; `agent` TEXT; `provider` TEXT; `model` TEXT; nullable `position` TEXT; `confidence` REAL; `reasoning` TEXT; `key_risks_json` TEXT; `evidence_gaps_json` TEXT; nullable `changed_position` INTEGER; `availability` TEXT; nullable `error` TEXT; `attempts` INTEGER; nullable `http_status` INTEGER. Composite primary key: `(run_id, agent)`. |
-| `portfolio_transactions` | `sequence` INTEGER autoincrement primary key; `transaction_id` unique TEXT; `timestamp` TEXT; `recorded_at` TEXT; `symbol` TEXT; nullable `asset_name` TEXT; `market` TEXT; `currency` TEXT; `action` TEXT; `quantity` TEXT; `price_per_share` TEXT; `fees` TEXT; `notes` TEXT; nullable `linked_analysis_run_id` TEXT foreign key; nullable `external_reference` TEXT |
+| `portfolio_transactions` | `sequence` INTEGER autoincrement primary key; `transaction_id` unique TEXT; `timestamp` TEXT; `recorded_at` TEXT; `symbol` TEXT; nullable `asset_name` TEXT; `market` TEXT; `currency` TEXT; `action` TEXT; `quantity` TEXT; `price_per_share` TEXT; `fees` TEXT; `notes` TEXT; nullable `linked_analysis_run_id` TEXT foreign key; nullable `external_reference` TEXT; `broker_provider` TEXT; `broker_account_ref` TEXT |
 
 `voting_json` contains `final_action`, `eligible_voters`, `excluded_agents` (names and
 reasons), three vote counts, `required_votes`, `winning_agents`, and `consensus_reached`.
@@ -67,7 +68,7 @@ that a model can never be influenced by malicious prose.
 
 ## Portfolio service
 
-Portfolio v1 is a Python service with a [bookkeeping CLI](portfolio-cli.md). Recording a transaction only
+Portfolio is a Python service with a [bookkeeping CLI](portfolio-cli.md). Recording a transaction only
 records an externally executed trade; it never executes anything or contacts a broker.
 
 ```python
@@ -102,8 +103,8 @@ Each transaction has a new UUID and separate execution and recording timestamps.
 Date-only input means midnight UTC; full timestamps must include a timezone and are
 normalized to UTC. Ordering is execution timestamp, then append sequence for ties.
 Symbols are stripped and uppercased; aliases and exchange-specific normalization are
-not inferred. Currency is required. Holdings are partitioned by `(symbol, currency,
-market)`; ambiguous symbol-only requests fail and require explicit filters. There is
+not inferred. Currency is required. Holdings are partitioned by `(broker_provider, broker_account_ref, symbol,
+market, currency)`; ambiguous symbol-only requests fail and require explicit filters. There is
 no FX conversion or cross-currency aggregation. Use an empty market filter (`market=""`)
 for transactions without a specified market.
 
@@ -116,9 +117,9 @@ Inputs permit up to 28 significant digits and 18 decimal places; accounting uses
 
 Writes use `BEGIN IMMEDIATE` to serialize validation and insertion. The entire
 instrument history, including a candidate backdated trade, must replay without an
-oversell. Short positions and corrections/reversals are not supported in v1. A rejected
-trade inserts nothing. Equal-time trades use insertion order. Explicit corrections,
-import deduplication, and multi-account rules require a later design; an external
+oversell. Short positions and corrections/reversals are not supported. A rejected
+trade inserts nothing. Equal-time trades use insertion order. Explicit corrections
+and import deduplication require a later design; an external
 reference is retained but not currently treated as a deduplication key.
 
 ## Accounting rules
@@ -181,8 +182,8 @@ tests block network access and use fake responses. The connectivity modules
 (`test_openai.py`, `test_gemini.py`, `test_claude.py`) do nothing on import/discovery;
 running them explicitly as scripts remains an opt-in live connectivity check.
 
-Before Phase 6, review backup/encryption policy, schema migration/version dispatch,
+Review backup/encryption policy,
 lexical relevance quality, timestamp/ticker/account conventions, correction records,
-import deduplication, and future currency-specific rounding. Future market prices,
-dividends, splits, account IDs, outcomes, and scoring should be separate versioned
+import deduplication, and future currency-specific rounding. Future
+dividends, splits, outcomes, and scoring should be separate versioned
 extensions; no such features or automatic trading are implemented here.

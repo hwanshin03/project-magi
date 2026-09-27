@@ -16,8 +16,8 @@ class ReadOnlyLedgerDatabase:
             connection = sqlite3.connect(self.path.resolve().as_uri() + '?mode=ro', uri=True, timeout=1)
             connection.row_factory = sqlite3.Row
             connection.execute('PRAGMA query_only = ON')
-            if connection.execute('PRAGMA user_version').fetchone()[0] != 1:
-                raise StorageError('Ledger schema is unavailable for reconciliation.')
+            if connection.execute('PRAGMA user_version').fetchone()[0] != 2:
+                raise StorageError('Ledger schema requires migration before reconciliation.')
             yield connection
         except (sqlite3.Error, OSError):
             raise StorageError('Ledger is unavailable for reconciliation.') from None

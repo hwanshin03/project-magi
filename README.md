@@ -278,3 +278,12 @@ unsupported because no suitable non-order endpoint is exposed. These commands ar
 manual live operations except the unsupported Toss balances command and help.
 See [Broker read-only guide](docs/broker-read-only.md) for privacy, schema, reconciliation,
 shared-token usage, limitations, and first-live-test preparation.
+
+## Account-aware ledger (Phase 6C)
+
+Portfolio transactions now include broker/account identity. Schema v1 migrates
+transactionally to v2, retaining existing trades as MANUAL/DEFAULT. Positions and
+reconciliation stay account-scoped; optional unified Python views preserve account
+breakdowns and native currencies. `portfolio accounts`, `--broker`, `--account`, and
+`list --all-accounts` expose local account views. No automatic import or trading is
+implemented. See the [account-aware portfolio guide](docs/account-aware-portfolio.md).

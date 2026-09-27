@@ -1,4 +1,4 @@
--- Schema v2. JSON stores structured lists and the voting snapshot, never credentials.
+-- Schema v1. JSON stores structured lists and the voting snapshot, never credentials.
 CREATE TABLE IF NOT EXISTS analysis_runs (
     run_id TEXT PRIMARY KEY,
     timestamp TEXT NOT NULL,
@@ -48,9 +48,7 @@ CREATE TABLE IF NOT EXISTS portfolio_transactions (
     fees TEXT NOT NULL,
     notes TEXT NOT NULL DEFAULT '',
     linked_analysis_run_id TEXT REFERENCES analysis_runs(run_id),
-    external_reference TEXT,
-    broker_provider TEXT NOT NULL DEFAULT 'MANUAL',
-    broker_account_ref TEXT NOT NULL DEFAULT 'DEFAULT'
+    external_reference TEXT
 );
 CREATE INDEX IF NOT EXISTS transaction_instrument ON portfolio_transactions
     (symbol, currency, market, timestamp, sequence);
@@ -68,8 +66,4 @@ CREATE TRIGGER IF NOT EXISTS transaction_no_update BEFORE UPDATE ON portfolio_tr
 BEGIN SELECT RAISE(ABORT, 'Transactions are append-only'); END;
 CREATE TRIGGER IF NOT EXISTS transaction_no_delete BEFORE DELETE ON portfolio_transactions
 BEGIN SELECT RAISE(ABORT, 'Transactions are append-only'); END;
-CREATE INDEX IF NOT EXISTS transaction_account_instrument ON portfolio_transactions
-    (broker_provider, broker_account_ref, symbol, market, currency, timestamp, sequence);
-CREATE INDEX IF NOT EXISTS transaction_external_reference ON portfolio_transactions
-    (broker_provider, broker_account_ref, external_reference);
-PRAGMA user_version = 2;
+PRAGMA user_version = 1;

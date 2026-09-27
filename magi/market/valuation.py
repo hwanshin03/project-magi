@@ -23,8 +23,10 @@ class PortfolioValuationService:
     def __init__(self, portfolio, market):
         self.portfolio, self.market = portfolio, market
 
-    def get_position_with_market_data(self, symbol, *, market, currency=None, display_currency=None):
-        base = self.portfolio.get_position(symbol, market=market, currency=currency)
+    def get_position_with_market_data(self, symbol, *, market, currency=None, display_currency=None,
+                                      broker_provider=None, broker_account_ref=None):
+        base = self.portfolio.get_position(symbol, market=market, currency=currency,
+                                           broker_provider=broker_provider, broker_account_ref=broker_account_ref)
         if base is None:
             return None
         display = currency_value(display_currency) if display_currency is not None else None
@@ -36,7 +38,8 @@ class PortfolioValuationService:
             return PositionValuation(base, quote_error=ErrorCode.INVALID_RESPONSE, display_currency=display)
         try:
             position = self.portfolio.get_position(base.symbol, current_price=quote.price,
-                                                   currency=base.currency, market=base.market)
+                                                   currency=base.currency, market=base.market,
+                                                   broker_provider=base.broker_provider, broker_account_ref=base.broker_account_ref)
         except PortfolioError:
             return PositionValuation(base, quote_error=ErrorCode.INVALID_RESPONSE, display_currency=display)
         fx, fx_error = None, None

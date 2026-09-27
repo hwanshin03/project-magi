@@ -1,6 +1,7 @@
 """Explicit read-only broker commands; help/imports never create clients or databases."""
 import argparse
 import sys
+from magi.accounts import PortfolioAccountIdentity
 from magi.portfolio import Portfolio
 from magi.storage import StorageError
 from .ledger import ReadOnlyLedgerDatabase
@@ -48,6 +49,7 @@ def main(argv=None, *, service=None, portfolio=None):
             print(f'Fetched at: {result.data.fetched_at.isoformat()} | Stale: {result.data.is_stale}')
             for index, account in enumerate(accounts, 1):
                 print(f'{account_label(index)} | Provider: {account.provider} | Type: {value_or_na(account.account_type)}')
+                print('Local portfolio reference: ' + PortfolioAccountIdentity.from_broker(account).account_ref)
             if not accounts:
                 print('No broker accounts found.')
             return 0
@@ -76,12 +78,13 @@ def main(argv=None, *, service=None, portfolio=None):
             try:
                 if portfolio is None:
                     portfolio = Portfolio(ReadOnlyLedgerDatabase())
-                positions = portfolio.get_open_positions()
+                identity = PortfolioAccountIdentity.from_broker(account)
+                positions = portfolio.get_open_positions_by_account(identity.provider, identity.account_ref)
             except StorageError:
                 print('MAGI ledger is unavailable for reconciliation.', file=sys.stderr)
             report = ReconciliationEngine().compare(positions, result)
             print('=== MAGI ↔ BROKER RECONCILIATION ===')
-            print('Selected broker account compared with the entire local ledger; no changes made.')
+            print('Selected broker account compared only with its matching local ledger account; no changes made.')
             if not report.available:
                 print('Status: UNAVAILABLE')
                 return 1
@@ -92,6 +95,8 @@ def main(argv=None, *, service=None, portfolio=None):
                 print(f'MAGI average cost: {value_or_na(row.ledger_average_cost)} | Broker average cost: {value_or_na(row.broker_average_cost)}')
                 print(f'Cost difference: {value_or_na(row.cost_difference)} | Cost comparable: {row.cost_comparable}')
                 print(f'Status: {row.status.value}')
+            if report.import_previews:
+                print(f'Broker-only previews: {len(report.import_previews)}. No transactions created; purchase dates/prices are not inferred.')
             if not report.rows:
                 print('Both position snapshots are empty.')
             return 0
@@ -119,6 +124,9 @@ def main(argv=None, *, service=None, portfolio=None):
             if not data.balances:
                 print('No cash balances supplied; not interpreted as zero cash.')
         return 0
+    except (ValueError, StorageError):
+        print('Broker account could not be matched to a local MAGI account.', file=sys.stderr)
+        return 1
     finally:
         if provider is not None:
             provider.close()

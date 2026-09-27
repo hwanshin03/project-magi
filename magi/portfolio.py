@@ -7,6 +7,7 @@ from enum import Enum
 from typing import Optional
 from uuid import UUID, uuid4
 
+from magi.accounts import PortfolioAccountIdentity, account_identity
 from magi.memory import AnalysisMemory
 from magi.storage import Database, StorageError, check_sensitive, timestamp
 
@@ -59,6 +60,8 @@ class Transaction:
     linked_analysis_run_id: Optional[str] = None
     external_reference: Optional[str] = None
     sequence: int = 0
+    broker_provider: str = 'MANUAL'
+    broker_account_ref: str = 'DEFAULT'
 
 
 @dataclass(frozen=True)
@@ -82,6 +85,26 @@ class PositionState:
     market_value: Optional[Decimal]
     unrealized_pnl: Optional[Decimal]
     unrealized_return: Optional[Decimal]
+    broker_provider: str = 'MANUAL'
+    broker_account_ref: str = 'DEFAULT'
+
+
+@dataclass(frozen=True)
+class UnifiedPosition:
+    symbol: str
+    market: str
+    currency: str
+    shares_held: Decimal
+    book_cost: Decimal
+    average_book_cost: Decimal
+    accounts: tuple
+
+
+@dataclass(frozen=True)
+class AccountPositions:
+    identity: PortfolioAccountIdentity
+    open_positions: int
+    closed_positions: int
 
 
 @dataclass(frozen=True)
@@ -126,7 +149,8 @@ def _calculate(transactions, current_price=None):
                 purchased, sold, quantity, book / quantity if quantity else ZERO, book,
                 invested, proceeds, basis_sold, realized,
                 realized / basis_sold if basis_sold else None,
-                price, market_value, pnl, pnl / book if pnl is not None and book else None)
+                price, market_value, pnl, pnl / book if pnl is not None and book else None,
+                trade.broker_provider, trade.broker_account_ref)
             history.append(PositionHistory(trade, state))
     return tuple(history)
 
@@ -158,6 +182,7 @@ class Portfolio:
                 data[key] = decimal_value(data[key])
             if data['quantity'] <= 0:
                 raise ValueError()
+            account_identity(data['broker_provider'], data['broker_account_ref'])
             check_sensitive(data)
             return Transaction(**data)
         except (ValueError, TypeError, KeyError):
@@ -165,7 +190,9 @@ class Portfolio:
 
     def record_transaction(self, symbol, action, quantity, price_per_share, *, currency,
                            executed_at=None, fees='0', asset_name=None, market=None, notes='',
-                           linked_analysis_run_id=None, external_reference=None):
+                           linked_analysis_run_id=None, external_reference=None,
+                           broker_provider=None, broker_account_ref=None):
+        identity = self._account(broker_provider, broker_account_ref)
         try:
             action = TradeAction(action)
             executed_at = timestamp(executed_at)
@@ -186,7 +213,8 @@ class Portfolio:
             raise PortfolioError('Quantity must be greater than zero')
         trade = Transaction(str(uuid4()), executed_at, timestamp(), symbol, currency, action,
                             quantity, price, fees, asset_name, market, notes or '',
-                            linked_analysis_run_id, external_reference)
+                            linked_analysis_run_id, external_reference, broker_provider=identity.provider,
+                            broker_account_ref=identity.account_ref)
         check_sensitive(asdict(trade))
         with self.database.connect() as connection:
             # Serialize validation and insertion so concurrent sells cannot oversell.
@@ -196,24 +224,37 @@ class Portfolio:
                 raise PortfolioError('Linked analysis does not exist')
             prior = [self._decode(row) for row in connection.execute(
                 'SELECT * FROM portfolio_transactions WHERE symbol = ? AND currency = ? AND market = ? '
-                'ORDER BY timestamp, sequence', (symbol, currency, market))]
+                'AND broker_provider = ? AND broker_account_ref = ? ORDER BY timestamp, sequence',
+                (symbol, currency, market, identity.provider, identity.account_ref))]
             # New entries sort after already-recorded trades with identical timestamps.
             replay = sorted(prior + [trade], key=lambda t: t.timestamp)
             _calculate(replay)
             cursor = connection.execute(
                 'INSERT INTO portfolio_transactions '
                 '(transaction_id,timestamp,recorded_at,symbol,asset_name,market,currency,action,quantity,'
-                'price_per_share,fees,notes,linked_analysis_run_id,external_reference) '
-                'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                'price_per_share,fees,notes,linked_analysis_run_id,external_reference,broker_provider,broker_account_ref) '
+                'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                 (trade.transaction_id, trade.timestamp, trade.recorded_at, symbol, asset_name, market,
                  currency, action.value, str(quantity), str(price), str(fees), trade.notes,
-                 linked_analysis_run_id, external_reference))
+                 linked_analysis_run_id, external_reference, identity.provider, identity.account_ref))
             row = connection.execute('SELECT * FROM portfolio_transactions WHERE sequence = ?',
                                      (cursor.lastrowid,)).fetchone()
             return self._decode(row)
 
-    def get_transactions(self, symbol=None, *, currency=None, market=None):
+    @staticmethod
+    def _account(provider=None, account_ref=None):
+        try:
+            return account_identity(provider, account_ref)
+        except ValueError:
+            raise PortfolioError('Invalid account selection: specify both broker and safe account reference.') from None
+
+    def get_transactions(self, symbol=None, *, currency=None, market=None,
+                         broker_provider=None, broker_account_ref=None):
         clauses, values = [], []
+        if broker_provider is not None or broker_account_ref is not None:
+            identity = self._account(broker_provider, broker_account_ref)
+            clauses.extend(['broker_provider = ?', 'broker_account_ref = ?'])
+            values.extend([identity.provider, identity.account_ref])
         for key, value in [('symbol', symbol_value(symbol) if symbol is not None else None),
                            ('currency', currency.upper() if currency is not None else None),
                            ('market', market.upper() if market is not None else None)]:
@@ -226,14 +267,16 @@ class Portfolio:
         with self.database.connect() as connection:
             return tuple(self._decode(row) for row in connection.execute(query + ' ORDER BY timestamp, sequence', values))
 
-    def _instrument_transactions(self, symbol, currency=None, market=None):
-        trades = self.get_transactions(symbol, currency=currency, market=market)
-        if len({(t.currency, t.market) for t in trades}) > 1:
-            raise PortfolioError('Ambiguous instrument; specify currency and market')
+    def _instrument_transactions(self, symbol, currency=None, market=None, broker_provider=None, broker_account_ref=None):
+        trades = self.get_transactions(symbol, currency=currency, market=market,
+                                       broker_provider=broker_provider, broker_account_ref=broker_account_ref)
+        if len({(t.broker_provider, t.broker_account_ref, t.currency, t.market) for t in trades}) > 1:
+            raise PortfolioError('Ambiguous instrument; specify broker, account, currency and market')
         return trades
 
-    def get_position(self, symbol, current_price=None, *, currency=None, market=None):
-        trades = self._instrument_transactions(symbol, currency, market)
+    def get_position(self, symbol, current_price=None, *, currency=None, market=None,
+                     broker_provider=None, broker_account_ref=None):
+        trades = self._instrument_transactions(symbol, currency, market, broker_provider, broker_account_ref)
         if not trades:
             return None
         try:
@@ -243,35 +286,70 @@ class Portfolio:
                 decimal_value(current_price)  # Expose invalid caller price as a validation error.
             raise StorageError('Stored ledger cannot produce a valid position.') from None
 
-    def get_position_history(self, symbol, *, currency=None, market=None):
-        trades = self._instrument_transactions(symbol, currency, market)
+    def get_position_history(self, symbol, *, currency=None, market=None,
+                             broker_provider=None, broker_account_ref=None):
+        trades = self._instrument_transactions(symbol, currency, market, broker_provider, broker_account_ref)
         try:
             return _calculate(trades)
         except PortfolioError:
             raise StorageError('Stored ledger cannot produce a valid position history.') from None
 
-    def _positions(self, opened, current_prices=None):
+    def _positions(self, opened, current_prices=None, **account_filters):
         groups = {}
-        for trade in self.get_transactions():
-            groups.setdefault((trade.symbol, trade.currency, trade.market), []).append(trade)
+        for trade in self.get_transactions(**account_filters):
+            groups.setdefault((trade.broker_provider, trade.broker_account_ref, trade.symbol, trade.market, trade.currency), []).append(trade)
         result = []
         for key, trades in groups.items():
             price = (current_prices or {}).get(key)
+            # Legacy quote lookup is price-only, never a cross-account aggregation.
+            if price is None:
+                price = (current_prices or {}).get((key[2], key[4], key[3]))
             if price is not None:
                 decimal_value(price)
             try:
                 position = _calculate(trades, price)[-1].position
             except PortfolioError:
                 raise StorageError('Stored ledger cannot produce valid positions.') from None
-            if (position.shares_held > 0) == opened:
+            if opened is None or (position.shares_held > 0) == opened:
                 result.append(position)
         return tuple(result)
 
-    def get_open_positions(self, current_prices=None):
-        return self._positions(True, current_prices)
+    def get_open_positions(self, current_prices=None, **account_filters):
+        return self._positions(True, current_prices, **account_filters)
 
-    def get_closed_positions(self):
-        return self._positions(False)
+    def get_closed_positions(self, **account_filters):
+        return self._positions(False, **account_filters)
+
+    def get_positions_by_account(self, broker_provider, broker_account_ref):
+        identity = self._account(broker_provider, broker_account_ref)
+        return self._positions(None, broker_provider=identity.provider, broker_account_ref=identity.account_ref)
+
+    def get_open_positions_by_account(self, broker_provider, broker_account_ref):
+        return tuple(p for p in self.get_positions_by_account(broker_provider, broker_account_ref) if p.shares_held > 0)
+
+    def get_accounts_with_positions(self):
+        groups = {}
+        for position in self._positions(None):
+            key = (position.broker_provider, position.broker_account_ref)
+            groups.setdefault(key, []).append(position)
+        return tuple(AccountPositions(self._account(*key), sum(p.shares_held>0 for p in rows),
+                                      sum(p.shares_held==0 for p in rows)) for key, rows in sorted(groups.items()))
+
+    def get_unified_position(self, symbol, *, currency=None, market=None):
+        symbol = symbol_value(symbol)
+        positions = tuple(p for p in self._positions(None) if p.symbol == symbol
+                          and (currency is None or p.currency == currency.upper())
+                          and (market is None or p.market == market.upper()))
+        if not positions:
+            return None
+        if len({(p.market, p.currency) for p in positions}) != 1:
+            raise PortfolioError('Ambiguous unified instrument; specify market and currency')
+        with localcontext() as context:
+            context.prec = 80
+            quantity = sum((p.shares_held for p in positions), ZERO)
+            book = sum((p.book_cost for p in positions), ZERO)
+            return UnifiedPosition(symbol, positions[0].market, positions[0].currency,
+                                   quantity, book, book/quantity if quantity else ZERO, positions)
 
     def get_first_purchase_date(self, symbol, **filters):
         trades = self._instrument_transactions(symbol, **filters)

@@ -4,6 +4,10 @@ from dataclasses import dataclass
 from decimal import Decimal, localcontext
 from enum import Enum
 from typing import Optional, Tuple
+from datetime import datetime
+from magi.accounts import PortfolioAccountIdentity
+from .models import BrokerAccount
+from magi.storage import StorageError
 
 
 class ReconciliationStatus(str, Enum):
@@ -32,11 +36,26 @@ class ReconciliationRow:
 
 
 @dataclass(frozen=True)
+class BrokerOnlyImportPreview:
+    account: PortfolioAccountIdentity
+    symbol: str
+    market: str
+    currency: str
+    observed_quantity: Decimal
+    observed_average_cost: Optional[Decimal]
+    observed_at: datetime
+    # A snapshot does not establish an execution price or acquisition date.
+    execution_price: Optional[Decimal] = None
+    executed_at: Optional[datetime] = None
+
+
+@dataclass(frozen=True)
 class ReconciliationReport:
     rows: Tuple[ReconciliationRow, ...]
     available: bool
     is_stale: bool = False
     status: Optional[ReconciliationStatus] = None
+    import_previews: Tuple[BrokerOnlyImportPreview, ...] = ()
 
 
 class ReconciliationEngine:
@@ -47,15 +66,22 @@ class ReconciliationEngine:
             return ReconciliationReport((), False, bool(snapshot and snapshot.is_stale), ReconciliationStatus.UNAVAILABLE)
         if any(h.is_stale for h in snapshot.holdings):
             return ReconciliationReport((), False, True, ReconciliationStatus.UNAVAILABLE)
+        try:
+            account = PortfolioAccountIdentity.from_broker(
+                BrokerAccount(snapshot.account_id, snapshot.provider, snapshot.fetched_at))
+        except (ValueError, StorageError):
+            return ReconciliationReport((), False, status=ReconciliationStatus.UNAVAILABLE)
         ledger, broker = defaultdict(list), defaultdict(list)
         for position in ledger_positions:
+            if (position.broker_provider, position.broker_account_ref) != (account.provider, account.account_ref):
+                continue
             if position.shares_held != 0:
                 ledger[(position.symbol.upper(), position.market.upper(), position.currency.upper())].append(position)
         for holding in snapshot.holdings:
             if holding.quantity != 0:
                 broker[(holding.symbol.upper(), holding.market.upper(), holding.currency.upper())].append(holding)
         keys = sorted(set(ledger) | set(broker))
-        rows = []
+        rows, previews = [], []
         with localcontext() as context:
             context.prec = 80
             for key in keys:
@@ -84,5 +110,7 @@ class ReconciliationEngine:
                     status = ReconciliationStatus.COST_MISMATCH
                 else:
                     status = ReconciliationStatus.MATCH
+                if status == ReconciliationStatus.BROKER_ONLY:
+                    previews.append(BrokerOnlyImportPreview(account, *key, rq, rc, snapshot.fetched_at))
                 rows.append(ReconciliationRow(*key, lq, rq, difference, lc, rc, cost_difference, status, comparable))
-        return ReconciliationReport(tuple(rows), True)
+        return ReconciliationReport(tuple(rows), True, import_previews=tuple(previews))

@@ -6,6 +6,7 @@ from decimal import Decimal, InvalidOperation, localcontext
 import re
 import sys
 
+from magi.accounts import account_identity, account_label
 from magi.memory import AnalysisMemory
 from magi.portfolio import Portfolio, PortfolioError, decimal_value
 from magi.storage import StorageError
@@ -55,7 +56,28 @@ def _currency(value):
     return value.upper()
 
 
+def _account_options(parser, all_accounts=False):
+    parser.add_argument('--broker', help='provider, paired with --account')
+    parser.add_argument('--account', help='safe local reference; never an account number')
+    if all_accounts:
+        parser.add_argument('--all-accounts', action='store_true', help='show separate rows for all accounts')
+
+
+def _account_filters(args):
+    broker, account = getattr(args, 'broker', None), getattr(args, 'account', None)
+    if getattr(args, 'all_accounts', False) and (broker is not None or account is not None):
+        raise CLIError('--all-accounts cannot be combined with --broker or --account.')
+    if broker is None and account is None and args.command in ('list', 'recent', 'accounts'):
+        return {}
+    try:
+        identity = account_identity(broker, account)
+    except ValueError:
+        raise CLIError("Invalid account selection: specify both broker and safe account reference.") from None
+    return dict(broker_provider=identity.provider, broker_account_ref=identity.account_ref)
+
+
 def _identity_options(parser):
+    _account_options(parser)
     parser.add_argument('--currency', type=_currency, default='USD', help='currency (default: USD)')
     parser.add_argument('--market', help='market; omitted means no inferred exchange')
 
@@ -83,11 +105,14 @@ def build_parser():
     show.add_argument('--current-price', type=lambda v: _amount(v, 'Current price'),
                       help='manually supplied price in the position currency')
     listing = actions.add_parser('list', help='list open positions across all currencies and markets')
+    _account_options(listing, all_accounts=True)
     listing.add_argument('--closed', action='store_true', help='show closed positions instead')
     history = actions.add_parser('history', help='show execution-ordered ledger history for one position')
     history.add_argument('symbol')
     _identity_options(history)
     recent = actions.add_parser('recent', help='show newest executions across all symbols')
+    _account_options(recent, all_accounts=True)
+    actions.add_parser('accounts', help='list local ledger accounts only')
     recent.add_argument('--limit', type=_limit, default=10, help='positive record limit (default: 10)')
     return parser
 
@@ -113,6 +138,7 @@ def percent(value):
 
 def print_transaction(trade):
     print(f'{trade.action.value} {number(trade.quantity)} {trade.symbol} @ {number(trade.price_per_share)} {trade.currency}')
+    print(f'Account: {account_label(trade.broker_provider, trade.broker_account_ref)}')
     print(f'Date: {trade.timestamp}')
     print(f'Fees: {number(trade.fees)} {trade.currency}')
     print(f'Market: {trade.market or "UNSET"}')
@@ -127,6 +153,7 @@ def print_transaction(trade):
 
 def print_position(position, asset_name=None):
     print('\n=== CURRENT POSITION ===\n')
+    print(f'Account: {account_label(position.broker_provider, position.broker_account_ref)}')
     print(f'Symbol: {position.symbol}')
     if asset_name:
         print(f'Asset name: {asset_name}')
@@ -150,7 +177,8 @@ def print_position(position, asset_name=None):
 
 
 def _asset_name(portfolio, position):
-    trades = portfolio.get_transactions(position.symbol, currency=position.currency, market=position.market)
+    trades = portfolio.get_transactions(position.symbol, currency=position.currency, market=position.market,
+                                        broker_provider=position.broker_provider, broker_account_ref=position.broker_account_ref)
     return next((trade.asset_name for trade in reversed(trades) if trade.asset_name), None)
 
 
@@ -164,7 +192,7 @@ def _record(args, portfolio):
         trade = portfolio.record_transaction(
             args.symbol, args.command.upper(), args.quantity, args.price,
             currency=args.currency, market=args.market, executed_at=args.date, fees=args.fees,
-            asset_name=args.asset_name, notes=args.note, linked_analysis_run_id=args.run_id)
+            asset_name=args.asset_name, notes=args.note, linked_analysis_run_id=args.run_id, **_account_filters(args))
     except PortfolioError as error:
         if str(error).startswith('Sell exceeds holdings'):
             raise CLIError(
@@ -176,7 +204,8 @@ def _record(args, portfolio):
     # The write has committed. A subsequent read/display failure must not suggest
     # re-recording an already successful transaction.
     try:
-        position = portfolio.get_position(trade.symbol, currency=trade.currency, market=trade.market)
+        position = portfolio.get_position(trade.symbol, currency=trade.currency, market=trade.market,
+                                          broker_provider=trade.broker_provider, broker_account_ref=trade.broker_account_ref)
         print_position(position, _asset_name(portfolio, position))
     except StorageError:
         print('Transaction recorded; position display is currently unavailable. Do not re-record this trade.', file=sys.stderr)
@@ -194,32 +223,42 @@ def _run(args, portfolio):
         _record(args, portfolio)
     elif args.command == 'show':
         position = portfolio.get_position(args.symbol, current_price=args.current_price,
-                                          currency=args.currency, market=args.market)
+                                          currency=args.currency, market=args.market, **_account_filters(args))
         if position is None:
             raise CLIError(f'No position found for {args.symbol.upper()} ({args.currency}).')
         print_position(position, _asset_name(portfolio, position))
     elif args.command == 'list':
-        positions = portfolio.get_closed_positions() if args.closed else portfolio.get_open_positions()
+        positions = portfolio.get_closed_positions(**_account_filters(args)) if args.closed else portfolio.get_open_positions(**_account_filters(args))
         print(f'\n=== {"CLOSED" if args.closed else "OPEN"} POSITIONS ===\n')
         if not positions:
             print(f'No {"closed" if args.closed else "open"} positions.')
             return
-        rows = [('SYMBOL', 'SHARES', 'AVG COST', 'CURRENCY', 'MARKET', 'REALIZED P/L')]
+        rows = [('SYMBOL', 'SHARES', 'AVG COST', 'CURRENCY', 'MARKET', 'REALIZED P/L', 'ACCOUNT')]
         rows.extend((p.symbol, number(p.shares_held), number(p.average_book_cost), p.currency,
-                     p.market or 'UNSET', signed(p.realized_pnl)) for p in positions)
+                     p.market or 'UNSET', signed(p.realized_pnl), account_label(p.broker_provider, p.broker_account_ref)) for p in positions)
         widths = [max(len(row[i]) for row in rows) for i in range(len(rows[0]))]
         for row in rows:
             print('  '.join(value.ljust(width) for value, width in zip(row, widths)).rstrip())
     elif args.command == 'history':
-        history = portfolio.get_position_history(args.symbol, currency=args.currency, market=args.market)
+        history = portfolio.get_position_history(args.symbol, currency=args.currency, market=args.market, **_account_filters(args))
         print(f'\n=== {args.symbol.upper()} TRANSACTION HISTORY ===\n')
         if not history:
             print('No transactions found.')
         for entry in history:
             print_transaction(entry.transaction)
             print()
+    elif args.command == 'accounts':
+        print('\n=== MAGI PORTFOLIO ACCOUNTS ===\n')
+        accounts = portfolio.get_accounts_with_positions()
+        if not accounts:
+            print('No local ledger accounts.')
+        for entry in accounts:
+            identity = entry.identity
+            print(account_label(identity.provider, identity.account_ref))
+            print(f'Provider: {identity.provider}; local reference: {identity.account_ref}')
+            print(f'Open positions: {entry.open_positions}; closed positions: {entry.closed_positions}')
     elif args.command == 'recent':
-        trades = portfolio.get_transactions()
+        trades = portfolio.get_transactions(**_account_filters(args))
         print(f'\n=== RECENT TRANSACTIONS (up to {args.limit}) ===\n')
         if not trades:
             print('No transactions found.')
@@ -231,6 +270,7 @@ def _run(args, portfolio):
 def main(argv=None, *, portfolio=None):
     args = build_parser().parse_args(argv)
     try:
+        _account_filters(args)
         _run(args, portfolio if portfolio is not None else Portfolio())
     except StorageError:
         print('Portfolio memory is currently unavailable.', file=sys.stderr)
