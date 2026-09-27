@@ -258,3 +258,23 @@ These commands make live read-only requests. Normal analysis and portfolio comma
 retain their existing behavior. No accounts or orders are accessed. See
 [market data documentation](docs/market-data.md) for schemas, cache/staleness,
 optional portfolio valuation, offline tests, and first-request review notes.
+
+## Broker read-only visibility (Phase 6B)
+
+An opt-in broker layer separates current external holdings from MAGI's historical
+transaction ledger. It reuses Toss OAuth and never imports transactions or trades.
+
+```sh
+python main.py broker accounts
+python main.py broker holdings --account 1
+python main.py broker summary --account 1
+python main.py broker reconcile --account 1
+python main.py broker balances
+```
+
+Accounts use masked numbered selectors. Reconciliation reads the existing ledger
+without modifying it. USD/KRW values remain separate; Toss cash balances are explicitly
+unsupported because no suitable non-order endpoint is exposed. These commands are
+manual live operations except the unsupported Toss balances command and help.
+See [Broker read-only guide](docs/broker-read-only.md) for privacy, schema, reconciliation,
+shared-token usage, limitations, and first-live-test preparation.

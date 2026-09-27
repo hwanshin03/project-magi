@@ -113,6 +113,9 @@ def cli(argv=None):
     if not args:
         main()
         return 0
+    if args[0] == "broker":
+        from magi.broker.cli import main as broker_cli
+        return broker_cli(args[1:])
     if args[0] == "market":
         from magi.market.cli import main as market_cli
         return market_cli(args[1:])
