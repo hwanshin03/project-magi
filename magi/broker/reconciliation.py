@@ -47,6 +47,22 @@ class BrokerOnlyImportPreview:
     # A snapshot does not establish an execution price or acquisition date.
     execution_price: Optional[Decimal] = None
     executed_at: Optional[datetime] = None
+    asset_name: Optional[str] = None
+    current_price: Optional[Decimal] = None
+    market_value: Optional[Decimal] = None
+    unrealized_pnl: Optional[Decimal] = None
+
+    @property
+    def as_of(self):
+        return self.observed_at
+
+    @property
+    def opening_book_cost(self):
+        if self.observed_average_cost is None:
+            return None
+        with localcontext() as context:
+            context.prec = 80
+            return self.observed_quantity * self.observed_average_cost
 
 
 @dataclass(frozen=True)
@@ -111,6 +127,8 @@ class ReconciliationEngine:
                 else:
                     status = ReconciliationStatus.MATCH
                 if status == ReconciliationStatus.BROKER_ONLY:
-                    previews.append(BrokerOnlyImportPreview(account, *key, rq, rc, snapshot.fetched_at))
+                    previews.append(BrokerOnlyImportPreview(account, *key, rq, rc, snapshot.fetched_at,
+                        asset_name=right[0].asset_name, current_price=right[0].current_price,
+                        market_value=right[0].market_value, unrealized_pnl=right[0].unrealized_pnl))
                 rows.append(ReconciliationRow(*key, lq, rq, difference, lc, rc, cost_difference, status, comparable))
         return ReconciliationReport(tuple(rows), True, import_previews=tuple(previews))

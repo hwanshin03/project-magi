@@ -16,7 +16,7 @@ class ReadOnlyLedgerDatabase:
             connection = sqlite3.connect(self.path.resolve().as_uri() + '?mode=ro', uri=True, timeout=1)
             connection.row_factory = sqlite3.Row
             connection.execute('PRAGMA query_only = ON')
-            if connection.execute('PRAGMA user_version').fetchone()[0] != 2:
+            if connection.execute('PRAGMA user_version').fetchone()[0] != 3:
                 raise StorageError('Ledger schema requires migration before reconciliation.')
             yield connection
         except (sqlite3.Error, OSError):

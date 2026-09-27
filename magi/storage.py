@@ -82,14 +82,17 @@ class Database:
                 # Lock before reading the version; concurrent openers cannot race.
                 connection.execute('BEGIN IMMEDIATE')
                 version = connection.execute('PRAGMA user_version').fetchone()[0]
-                if version not in (0, 1, 2):
+                if version not in (0, 1, 2, 3):
                     raise StorageError('Unsupported memory schema version.')
                 if version == 0:
                     if connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").fetchone():
                         raise StorageError('Portfolio database migration failed.')
                     self._execute_schema(connection, Path(__file__).with_name('schema.sql'))
-                elif version == 1:
-                    self._execute_schema(connection, Path(__file__).with_name('migrations') / '002_accounts.sql')
+                else:
+                    migrations = {1: '002_accounts.sql', 2: '003_opening_balances.sql'}
+                    while version < 3:
+                        self._execute_schema(connection, Path(__file__).with_name('migrations') / migrations[version])
+                        version += 1
                 if connection.execute('PRAGMA foreign_key_check').fetchone():
                     raise StorageError('Portfolio database migration failed.')
             except (sqlite3.Error, OSError):

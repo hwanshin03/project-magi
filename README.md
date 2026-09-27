@@ -287,3 +287,13 @@ reconciliation stay account-scoped; optional unified Python views preserve accou
 breakdowns and native currencies. `portfolio accounts`, `--broker`, `--account`, and
 `list --all-accounts` expose local account views. No automatic import or trading is
 implemented. See the [account-aware portfolio guide](docs/account-aware-portfolio.md).
+
+## Explicit opening balances (Phase 6D)
+
+Schema v3 adds append-only OPENING_BALANCE events for positions whose earlier trades
+are unknown. `broker import-preview` is read-only; `broker import-position SYMBOL
+--account SAFE_REF --confirm` explicitly initializes one local account-scoped position.
+Original purchase dates, fees and historical BUYs are never invented. Existing broker
+requests remain read-only; no order endpoint or automatic import is added.
+See the [opening-balance guide](docs/opening-balances.md) for migration, accounting,
+confirmation, duplicate protection and the manual-history alternative.

@@ -45,7 +45,7 @@ class MemoryTests(unittest.TestCase):
         with self.db.connect() as connection:
             tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             self.assertTrue({'analysis_runs', 'analysis_agents', 'portfolio_transactions'} <= tables)
-            self.assertEqual(connection.execute('PRAGMA user_version').fetchone()[0], 2)
+            self.assertEqual(connection.execute('PRAGMA user_version').fetchone()[0], 3)
             self.assertEqual(connection.execute('PRAGMA foreign_keys').fetchone()[0], 1)
 
     def test_store_retrieve_full_snapshot_and_explanation(self):

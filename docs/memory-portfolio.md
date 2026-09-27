@@ -10,7 +10,9 @@ No new third-party dependencies are needed.
 
 The **complete executable schema**, including every column, constraint, index, and
 append-only trigger, is [`magi/schema.sql`](../magi/schema.sql). `PRAGMA user_version`
-is 2. Version 1 migrates transactionally to MANUAL/DEFAULT; see the
+is 3. Version 1 first migrates transactionally to MANUAL/DEFAULT; v2 then adds
+a separate opening-event table without changing trades. See the
+[opening-balance guide](opening-balances.md) and the
 [account-aware ledger guide](account-aware-portfolio.md). Unknown schema versions are rejected, not reset or automatically rewritten.
 
 | Table | Columns |
@@ -26,8 +28,11 @@ Confidence is numeric metadata, not money and not a voting weight.
 
 Indexes cover recent analyses, final action, agent/position, execution-ordered
 instrument histories, and linked analyses. UPDATE and DELETE triggers reject changes
-to all three tables. These prevent accidental mutation; the database is not encrypted
+to all ledger and analysis tables. These prevent accidental mutation; the database is not encrypted
 or tamper-proof against someone who can directly replace files or drop its triggers.
+
+Opening events live in `portfolio_opening_balances`; their complete schema and tracking
+semantics are documented in the [opening-balance guide](opening-balances.md).
 
 ## Analysis memory
 
@@ -70,6 +75,8 @@ that a model can never be influenced by malicious prose.
 
 Portfolio is a Python service with a [bookkeeping CLI](portfolio-cli.md). Recording a transaction only
 records an externally executed trade; it never executes anything or contacts a broker.
+Explicit broker imports instead create opening events with unknown earlier history;
+see [opening balances](opening-balances.md).
 
 ```python
 from magi.portfolio import Portfolio
@@ -108,8 +115,8 @@ market, currency)`; ambiguous symbol-only requests fail and require explicit fil
 no FX conversion or cross-currency aggregation. Use an empty market filter (`market=""`)
 for transactions without a specified market.
 
-Quantities must be positive; prices and fees nonnegative and finite. Only BUY and SELL
-are supported. `Decimal` values are stored as TEXT and never converted to SQLite REAL.
+Quantities must be positive; prices and fees nonnegative and finite. BUY and SELL remain actual transactions; explicit OPENING_BALANCE events are stored
+separately and included in ledger reads. `Decimal` values are stored as TEXT and never converted to SQLite REAL.
 Pass strings or `Decimal` for exact input. Float inputs are accepted through `str(value)`
 for convenience, but cannot recover precision already lost before calling the API.
 Inputs permit up to 28 significant digits and 18 decimal places; accounting uses a

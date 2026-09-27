@@ -230,3 +230,12 @@ Buy/sell/show/history default to MANUAL/DEFAULT. Supply both `--broker` and
 rows by default and support the same filters or `--all-accounts`. `portfolio accounts`
 lists only accounts in the local ledger. See the [account-aware guide](account-aware-portfolio.md)
 for complete syntax, safe references, migration, and unified Python views.
+
+## Opening-initialized positions (Phase 6D)
+
+History/recent include explicitly recorded OPENING_BALANCE events. Position displays
+separate tracking start, unknown original purchase date, later actual BUY dates and
+tracked realized P/L. Opening quantity is not counted as a historical BUY. Lists
+include a history-completeness column. Manual BUY/SELL entry remains available for
+known real trades. See [opening balances](opening-balances.md); broker import is a
+separate command requiring `--confirm`, with no order execution.

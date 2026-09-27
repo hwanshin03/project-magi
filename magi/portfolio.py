@@ -1,10 +1,12 @@
 """Append-only trade ledger and weighted-average analytics; NOT tax accounting."""
 
+import hashlib
+import json
 import re
 from dataclasses import asdict, dataclass
 from decimal import Decimal, InvalidOperation, localcontext
 from enum import Enum
-from typing import Optional
+from typing import Optional, Union
 from uuid import UUID, uuid4
 
 from magi.accounts import PortfolioAccountIdentity, account_identity
@@ -21,6 +23,12 @@ class PortfolioError(ValueError):
 class TradeAction(str, Enum):
     BUY = 'BUY'
     SELL = 'SELL'
+    OPENING_BALANCE = 'OPENING_BALANCE'
+
+
+class HistoryCompleteness(str, Enum):
+    COMPLETE_HISTORY = 'COMPLETE_HISTORY'
+    OPENING_BALANCE_HISTORY = 'OPENING_BALANCE_HISTORY'
 
 
 def decimal_value(value):
@@ -65,6 +73,37 @@ class Transaction:
 
 
 @dataclass(frozen=True)
+class OpeningBalance:
+    transaction_id: str
+    timestamp: str  # Tracking as-of time; never an execution or original purchase date.
+    recorded_at: str
+    broker_provider: str
+    broker_account_ref: str
+    symbol: str
+    market: str
+    currency: str
+    quantity: Decimal
+    opening_unit_cost: Decimal
+    opening_book_cost: Decimal
+    asset_name: Optional[str] = None
+    notes: str = ''
+    external_reference: Optional[str] = None
+    sequence: int = 0
+    action: TradeAction = TradeAction.OPENING_BALANCE
+    source: str = 'BROKER_SNAPSHOT'
+    history_completeness: HistoryCompleteness = HistoryCompleteness.OPENING_BALANCE_HISTORY
+
+    @property
+    def as_of(self):
+        return self.timestamp
+
+    # Common ledger consumers must not mistake opening cost for an execution.
+    price_per_share = None
+    fees = None
+    linked_analysis_run_id = None
+
+
+@dataclass(frozen=True)
 class PositionState:
     symbol: str
     currency: str
@@ -87,6 +126,14 @@ class PositionState:
     unrealized_return: Optional[Decimal]
     broker_provider: str = 'MANUAL'
     broker_account_ref: str = 'DEFAULT'
+    history_completeness: HistoryCompleteness = HistoryCompleteness.COMPLETE_HISTORY
+    tracking_start_date: Optional[str] = None
+    first_recorded_buy_date: Optional[str] = None
+    pre_tracking_realized_pnl: Optional[Decimal] = ZERO
+
+    @property
+    def original_first_purchase_date(self):
+        return self.first_purchase_date
 
 
 @dataclass(frozen=True)
@@ -109,7 +156,7 @@ class AccountPositions:
 
 @dataclass(frozen=True)
 class PositionHistory:
-    transaction: Transaction
+    transaction: Union[Transaction, OpeningBalance]
     position: PositionState
 
 
@@ -119,19 +166,29 @@ def _calculate(transactions, current_price=None):
         return ()
     price = None if current_price is None else decimal_value(current_price)
     quantity = book = purchased = sold = invested = proceeds = realized = basis_sold = ZERO
-    first_purchase = None
+    first_purchase = first_recorded_buy = None
+    completeness = HistoryCompleteness.COMPLETE_HISTORY
+    tracking_start = transactions[0].timestamp
     history = []
     with localcontext() as context:
         context.prec = 80
         for trade in transactions:
-            gross = trade.quantity * trade.price_per_share
-            if trade.action == TradeAction.BUY:
-                first_purchase = first_purchase or trade.timestamp
+            if trade.action == TradeAction.OPENING_BALANCE:
+                if history:
+                    raise PortfolioError('Opening balance must initialize an untracked instrument')
+                quantity, book = trade.quantity, trade.opening_book_cost
+                completeness = HistoryCompleteness.OPENING_BALANCE_HISTORY
+            elif trade.action == TradeAction.BUY:
+                gross = trade.quantity * trade.price_per_share
+                first_recorded_buy = first_recorded_buy or trade.timestamp
+                if completeness == HistoryCompleteness.COMPLETE_HISTORY:
+                    first_purchase = first_purchase or trade.timestamp
                 quantity += trade.quantity
                 purchased += trade.quantity
                 book += gross + trade.fees
                 invested += gross + trade.fees
             else:
+                gross = trade.quantity * trade.price_per_share
                 if trade.quantity > quantity:
                     raise PortfolioError('Sell exceeds holdings at its execution date; short positions are unsupported')
                 released = book if trade.quantity == quantity else book * trade.quantity / quantity
@@ -150,7 +207,8 @@ def _calculate(transactions, current_price=None):
                 invested, proceeds, basis_sold, realized,
                 realized / basis_sold if basis_sold else None,
                 price, market_value, pnl, pnl / book if pnl is not None and book else None,
-                trade.broker_provider, trade.broker_account_ref)
+                trade.broker_provider, trade.broker_account_ref, completeness, tracking_start,
+                first_recorded_buy, None if completeness == HistoryCompleteness.OPENING_BALANCE_HISTORY else ZERO)
             history.append(PositionHistory(trade, state))
     return tuple(history)
 
@@ -178,6 +236,8 @@ class Portfolio:
             if data['linked_analysis_run_id'] is not None:
                 UUID(data['linked_analysis_run_id'])
             data['action'] = TradeAction(data['action'])
+            if data['action'] == TradeAction.OPENING_BALANCE:
+                raise ValueError()
             for key in ('quantity', 'price_per_share', 'fees'):
                 data[key] = decimal_value(data[key])
             if data['quantity'] <= 0:
@@ -195,6 +255,8 @@ class Portfolio:
         identity = self._account(broker_provider, broker_account_ref)
         try:
             action = TradeAction(action)
+            if action == TradeAction.OPENING_BALANCE:
+                raise ValueError()
             executed_at = timestamp(executed_at)
         except (ValueError, TypeError):
             raise PortfolioError('Use BUY or SELL and a valid ISO date or timezone-aware timestamp') from None
@@ -222,10 +284,11 @@ class Portfolio:
             if linked_analysis_run_id is not None and not connection.execute(
                     'SELECT 1 FROM analysis_runs WHERE run_id = ?', (linked_analysis_run_id,)).fetchone():
                 raise PortfolioError('Linked analysis does not exist')
-            prior = [self._decode(row) for row in connection.execute(
-                'SELECT * FROM portfolio_transactions WHERE symbol = ? AND currency = ? AND market = ? '
-                'AND broker_provider = ? AND broker_account_ref = ? ORDER BY timestamp, sequence',
-                (symbol, currency, market, identity.provider, identity.account_ref))]
+            prior = list(self._read_events(connection,
+                ' WHERE symbol = ? AND currency = ? AND market = ? AND broker_provider = ? AND broker_account_ref = ?',
+                (symbol, currency, market, identity.provider, identity.account_ref)))
+            if any(t.action == TradeAction.OPENING_BALANCE and trade.timestamp < t.timestamp for t in prior):
+                raise PortfolioError('Trade precedes opening balance tracking start; historical backfill is unsupported')
             # New entries sort after already-recorded trades with identical timestamps.
             replay = sorted(prior + [trade], key=lambda t: t.timestamp)
             _calculate(replay)
@@ -250,6 +313,7 @@ class Portfolio:
 
     def get_transactions(self, symbol=None, *, currency=None, market=None,
                          broker_provider=None, broker_account_ref=None):
+        """Return the ordered ledger: real transactions and explicit opening events."""
         clauses, values = [], []
         if broker_provider is not None or broker_account_ref is not None:
             identity = self._account(broker_provider, broker_account_ref)
@@ -261,11 +325,105 @@ class Portfolio:
             if value is not None:
                 clauses.append(key + ' = ?')
                 values.append(value)
-        query = 'SELECT * FROM portfolio_transactions'
-        if clauses:
-            query += ' WHERE ' + ' AND '.join(clauses)
+        where = ' WHERE ' + ' AND '.join(clauses) if clauses else ''
         with self.database.connect() as connection:
-            return tuple(self._decode(row) for row in connection.execute(query + ' ORDER BY timestamp, sequence', values))
+            return self._read_events(connection, where, values)
+
+    def _read_events(self, connection, where='', values=()):
+        trades = [self._decode(row) for row in connection.execute('SELECT * FROM portfolio_transactions' + where, values)]
+        openings = [self._decode_opening(row) for row in connection.execute('SELECT * FROM portfolio_opening_balances' + where, values)]
+        return tuple(sorted(trades + openings, key=lambda t: (t.timestamp, t.action != TradeAction.OPENING_BALANCE, t.sequence)))
+
+    def _decode_opening(self, row):
+        try:
+            data = dict(row)
+            data['timestamp'] = data.pop('as_of')
+            UUID(data['transaction_id'])
+            for key in ('timestamp', 'recorded_at'):
+                if timestamp(data[key]) != data[key]:
+                    raise ValueError()
+            identity = account_identity(data['broker_provider'], data['broker_account_ref'])
+            if identity.provider == 'MANUAL' or identity.provider != data['broker_provider']:
+                raise ValueError()
+            if symbol_value(data['symbol']) != data['symbol'] or not re.fullmatch('[A-Z]{3}', data['currency']):
+                raise ValueError()
+            if not data['market'] or data['market'] != data['market'].strip().upper():
+                raise ValueError()
+            for key in ('asset_name', 'external_reference'):
+                if data[key] is not None and not isinstance(data[key], str):
+                    raise ValueError()
+            if not isinstance(data['notes'], str) or type(data['sequence']) is not int or data['sequence'] <= 0:
+                raise ValueError()
+            data['quantity'] = decimal_value(data['quantity'])
+            data['opening_unit_cost'] = decimal_value(data['opening_unit_cost'])
+            data['opening_book_cost'] = Decimal(data['opening_book_cost'])
+            with localcontext() as context:
+                context.prec = 80
+                if data['quantity'] <= 0 or data['opening_book_cost'] != data['quantity'] * data['opening_unit_cost']:
+                    raise ValueError()
+            if (data['action'] != 'OPENING_BALANCE' or data['source'] != 'BROKER_SNAPSHOT'
+                    or data['history_completeness'] != 'OPENING_BALANCE_HISTORY'):
+                raise ValueError()
+            data['action'] = TradeAction(data['action'])
+            data['history_completeness'] = HistoryCompleteness(data['history_completeness'])
+            check_sensitive(data)
+            return OpeningBalance(**data)
+        except (ValueError, TypeError, KeyError, InvalidOperation):
+            raise StorageError('Invalid stored opening balance.') from None
+
+    def record_opening_balance(self, symbol, quantity, opening_unit_cost, *, as_of, currency,
+                               market, broker_provider, broker_account_ref, confirmed=False,
+                               asset_name=None, notes='', external_reference=None):
+        """Explicit local initialization only; imports validate broker freshness separately."""
+        if confirmed is not True:
+            raise PortfolioError('CONFIRMATION_REQUIRED: opening balance requires explicit confirmation')
+        identity = self._account(broker_provider, broker_account_ref)
+        if identity.provider == 'MANUAL':
+            raise PortfolioError('IMPORT_NOT_ALLOWED: a broker account is required')
+        symbol = symbol_value(symbol)
+        if not isinstance(currency, str) or not re.fullmatch('[A-Za-z]{3}', currency):
+            raise PortfolioError('Currency must be a three-letter code')
+        if not isinstance(market, str) or not market.strip():
+            raise PortfolioError('An explicit market is required')
+        currency, market = currency.upper(), market.strip().upper()
+        try:
+            as_of = timestamp(as_of) if as_of is not None else None
+            if as_of is None:
+                raise ValueError()
+        except (ValueError, TypeError):
+            raise PortfolioError('A valid opening balance as-of timestamp is required') from None
+        quantity, unit_cost = decimal_value(quantity), decimal_value(opening_unit_cost)
+        if quantity <= 0:
+            raise PortfolioError('Quantity must be greater than zero')
+        for value in (asset_name, notes, external_reference):
+            if value is not None and not isinstance(value, str):
+                raise PortfolioError('Optional metadata must be text')
+        with localcontext() as context:
+            context.prec = 80
+            book = quantity * unit_cost
+        key = (identity.provider, identity.account_ref, symbol, market, currency)
+        if external_reference is None:
+            external_reference = 'opening_' + hashlib.sha256(json.dumps(key).encode()).hexdigest()
+        event = OpeningBalance(str(uuid4()), as_of, timestamp(), identity.provider,
+                               identity.account_ref, symbol, market, currency, quantity,
+                               unit_cost, book, asset_name, notes or '', external_reference)
+        check_sensitive(asdict(event))
+        with self.database.connect() as connection:
+            connection.execute('BEGIN IMMEDIATE')
+            prior = self._read_events(connection,
+                ' WHERE broker_provider = ? AND broker_account_ref = ? AND symbol = ? AND market = ? AND currency = ?', key)
+            if prior:
+                raise PortfolioError('ALREADY_TRACKED: opening balance cannot replace existing ledger history')
+            cursor = connection.execute(
+                'INSERT INTO portfolio_opening_balances '
+                '(transaction_id,as_of,recorded_at,broker_provider,broker_account_ref,symbol,asset_name,market,currency,'
+                'action,quantity,opening_unit_cost,opening_book_cost,source,history_completeness,notes,external_reference) '
+                'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                (event.transaction_id, event.as_of, event.recorded_at, identity.provider, identity.account_ref,
+                 symbol, asset_name, market, currency, event.action.value, str(quantity), str(unit_cost), str(book),
+                 event.source, event.history_completeness.value, event.notes, external_reference))
+            return self._decode_opening(connection.execute(
+                'SELECT * FROM portfolio_opening_balances WHERE sequence = ?', (cursor.lastrowid,)).fetchone())
 
     def _instrument_transactions(self, symbol, currency=None, market=None, broker_provider=None, broker_account_ref=None):
         trades = self.get_transactions(symbol, currency=currency, market=market,
@@ -353,6 +511,8 @@ class Portfolio:
 
     def get_first_purchase_date(self, symbol, **filters):
         trades = self._instrument_transactions(symbol, **filters)
+        if any(t.action == TradeAction.OPENING_BALANCE for t in trades):
+            return None
         return next((t.timestamp for t in trades if t.action == TradeAction.BUY), None)
 
     def get_latest_transaction(self, symbol, **filters):

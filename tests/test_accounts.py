@@ -262,7 +262,7 @@ class MigrationTests(unittest.TestCase):
     def test_v1_migration_preserves_every_historical_field_and_analysis(self):
         database = Database(self.path)
         with database.connect() as connection:
-            self.assertEqual(connection.execute('PRAGMA user_version').fetchone()[0],2)
+            self.assertEqual(connection.execute('PRAGMA user_version').fetchone()[0],3)
             self.assertEqual(connection.execute('PRAGMA integrity_check').fetchone()[0],'ok')
             self.assertEqual(connection.execute('PRAGMA foreign_key_check').fetchall(),[])
             for table,(columns,rows) in self.original.items():

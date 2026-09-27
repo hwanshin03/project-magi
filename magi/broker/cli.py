@@ -1,4 +1,4 @@
-"""Explicit read-only broker commands; help/imports never create clients or databases."""
+"""Read-only remote access; explicit import commands may write local opening balances."""
 import argparse
 import sys
 from magi.accounts import PortfolioAccountIdentity
@@ -21,9 +21,15 @@ def _select(accounts, index):
 
 
 def main(argv=None, *, service=None, portfolio=None):
-    parser = argparse.ArgumentParser(prog='python main.py broker', description='Read-only broker snapshots; no import or trading.')
+    argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] in ('import-preview', 'import-position'):
+        from .import_cli import main as import_cli
+        return import_cli(argv, service=service, portfolio=portfolio)
+    parser = argparse.ArgumentParser(prog='python main.py broker', description='Read-only broker access; explicit local imports; no trading.')
     commands = parser.add_subparsers(dest='command', required=True)
     commands.add_parser('accounts')
+    commands.add_parser('import-preview', help='read-only opening-balance preview')
+    commands.add_parser('import-position', help='explicit single-position local opening balance')
     for name in ('holdings', 'balances', 'summary', 'reconcile'):
         command = commands.add_parser(name)
         command.add_argument('--account', type=int, help='Displayed account index, never a full account number')

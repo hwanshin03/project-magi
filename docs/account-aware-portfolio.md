@@ -1,5 +1,8 @@
 # Phase 6C: account-aware ledger and reconciliation
 
+Phase 6D now extends this design with [explicit opening balances](opening-balances.md)
+and schema v3. The v1 → v2 migration described here remains the first migration step.
+
 The local ledger records trades that already happened. Broker snapshots are read-only
 observations. Phase 6C does not import snapshots, synchronize trades, correct history,
 place orders, or implement Kiwoom connectivity.

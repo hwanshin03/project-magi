@@ -8,7 +8,8 @@ import sys
 
 from magi.accounts import account_identity, account_label
 from magi.memory import AnalysisMemory
-from magi.portfolio import Portfolio, PortfolioError, decimal_value
+from magi.portfolio import Portfolio, PortfolioError, decimal_value, TradeAction, HistoryCompleteness
+from magi.portfolio_presentation import HISTORY_WARNINGS
 from magi.storage import StorageError
 
 
@@ -137,10 +138,18 @@ def percent(value):
 
 
 def print_transaction(trade):
-    print(f'{trade.action.value} {number(trade.quantity)} {trade.symbol} @ {number(trade.price_per_share)} {trade.currency}')
+    if trade.action == TradeAction.OPENING_BALANCE:
+        print(f'OPENING_BALANCE {number(trade.quantity)} {trade.symbol} | Opening unit cost: {number(trade.opening_unit_cost)} {trade.currency}')
+        print(f'Opening book cost: {number(trade.opening_book_cost)} {trade.currency}')
+        print(f'As of / tracking starts: {trade.as_of}')
+        print('Original purchase date: UNKNOWN; prior realized P/L: UNKNOWN')
+        print(HISTORY_WARNINGS['en'])
+    else:
+        print(f'{trade.action.value} {number(trade.quantity)} {trade.symbol} @ {number(trade.price_per_share)} {trade.currency}')
     print(f'Account: {account_label(trade.broker_provider, trade.broker_account_ref)}')
-    print(f'Date: {trade.timestamp}')
-    print(f'Fees: {number(trade.fees)} {trade.currency}')
+    if trade.action != TradeAction.OPENING_BALANCE:
+        print(f'Date: {trade.timestamp}')
+        print(f'Fees: {number(trade.fees)} {trade.currency}')
     print(f'Market: {trade.market or "UNSET"}')
     print(f'Transaction ID: {trade.transaction_id}')
     if trade.asset_name:
@@ -159,7 +168,15 @@ def print_position(position, asset_name=None):
         print(f'Asset name: {asset_name}')
     print(f'Market: {position.market or "UNSET"}')
     print(f'Currency: {position.currency}')
-    print(f'First purchase: {position.first_purchase_date}')
+    print(f'History: {position.history_completeness.value}')
+    if position.history_completeness == HistoryCompleteness.OPENING_BALANCE_HISTORY:
+        print(f'First tracked by MAGI: {position.tracking_start_date}')
+        print('Original purchase date: UNKNOWN')
+        print(f'First recorded BUY: {position.first_recorded_buy_date or "NONE"}')
+        print('Historical realized P/L before tracking: UNKNOWN')
+        print(HISTORY_WARNINGS['en'])
+    else:
+        print(f'First purchase: {position.first_purchase_date}')
     print(f'Latest transaction: {position.latest_transaction_date}')
     print(f'Total shares purchased: {number(position.total_shares_purchased)}')
     print(f'Total shares sold: {number(position.total_shares_sold)}')
@@ -167,7 +184,8 @@ def print_position(position, asset_name=None):
     print(f'Average book cost: {number(position.average_book_cost)}')
     print(f'Remaining book cost: {number(position.book_cost)}')
     print('\n=== REALIZED PERFORMANCE ===\n')
-    print(f'Realized P/L: {signed(position.realized_pnl)} {position.currency}')
+    scope = 'Tracked realized P/L' if position.history_completeness == HistoryCompleteness.OPENING_BALANCE_HISTORY else 'Realized P/L'
+    print(f'{scope}: {signed(position.realized_pnl)} {position.currency}')
     print(f'Realized return: {percent(position.realized_return)}')
     print('\n=== MANUAL PRICE VALUATION ===\n')
     print(f'Current price: {number(position.current_price) if position.current_price is not None else "NOT PROVIDED"}')
@@ -233,9 +251,9 @@ def _run(args, portfolio):
         if not positions:
             print(f'No {"closed" if args.closed else "open"} positions.')
             return
-        rows = [('SYMBOL', 'SHARES', 'AVG COST', 'CURRENCY', 'MARKET', 'REALIZED P/L', 'ACCOUNT')]
+        rows = [('SYMBOL', 'SHARES', 'AVG COST', 'CURRENCY', 'MARKET', 'TRACKED REALIZED P/L', 'ACCOUNT', 'HISTORY')]
         rows.extend((p.symbol, number(p.shares_held), number(p.average_book_cost), p.currency,
-                     p.market or 'UNSET', signed(p.realized_pnl), account_label(p.broker_provider, p.broker_account_ref)) for p in positions)
+                     p.market or 'UNSET', signed(p.realized_pnl), account_label(p.broker_provider, p.broker_account_ref), p.history_completeness.value) for p in positions)
         widths = [max(len(row[i]) for row in rows) for i in range(len(rows[0]))]
         for row in rows:
             print('  '.join(value.ljust(width) for value, width in zip(row, widths)).rstrip())

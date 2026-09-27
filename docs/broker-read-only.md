@@ -1,9 +1,11 @@
 # Phase 6B: broker read-only visibility
 
 Broker snapshots describe current external account state. MAGI's append-only ledger
-records historical transactions. Neither replaces the other. This layer never
-creates transactions, adjusts average costs, imports executions, writes snapshots
-into analysis memory, or places/modifies/cancels orders.
+records historical transactions. Neither replaces the other. The remote provider and read-only commands never
+create transactions, adjust average costs, import executions, write snapshots
+into analysis memory, or place/modify/cancel orders.
+Phase 6D adds a separate explicit local opening-balance command; see
+[opening balances](opening-balances.md). Remote requests remain read-only.
 
 ## Supported Toss capabilities and limits
 
@@ -142,7 +144,7 @@ normal MAGI analysis, the Portfolio CLI, or Market CLI control flow.
 snapshots. It never calls transaction-writing methods. CLI loads the existing ledger
 using a dedicated SQLite `mode=ro`, `query_only` connection, with no schema creation
 or migration. A missing or unreadable ledger is UNAVAILABLE; it is not created or
-assumed empty. The ledger must already have schema version 2; local Database initialization migrates v1.
+assumed empty. The ledger must already have schema version 3; local Database initialization migrates v1/v2.
 
 Identity is **provider + safe account reference + symbol + market + currency**. Closed/zero positions are omitted.
 Duplicates, unknown market mappings, and inconsistent broker account references are
