@@ -219,3 +219,23 @@ It does not execute trades or fetch market prices. This is not tax-lot accountin
 
 See [the memory and portfolio guide](docs/memory-portfolio.md) for the complete schema,
 service examples, accounting definitions, security boundaries, and offline test command.
+
+## Portfolio CLI
+
+Record trades that already occurred and inspect the local ledger:
+
+```sh
+python main.py portfolio buy NVDA 10 180 --currency USD --market US
+python main.py portfolio sell NVDA 4 210 --market US
+python main.py portfolio show NVDA --market US --current-price 202.50
+python main.py portfolio list
+python main.py portfolio history NVDA --market US
+python main.py portfolio recent --limit 20
+```
+
+These are bookkeeping commands, not order execution. Prices are never fetched.
+Currency defaults to USD; markets are not inferred. Running `python main.py` without
+arguments still starts the normal MAGI analysis workflow.
+
+See the [Portfolio CLI guide](docs/portfolio-cli.md) for complete options, examples,
+analysis-run linking, and error behavior.

@@ -107,5 +107,15 @@ def main():
     return vote
 
 
+def cli(argv=None):
+    import sys
+    args = sys.argv[1:] if argv is None else argv
+    if not args:
+        main()
+        return 0
+    from magi.portfolio_cli import main as portfolio_cli
+    return portfolio_cli(args)
+
+
 if __name__ == "__main__":
-    main()
+    raise SystemExit(cli())

@@ -67,7 +67,7 @@ that a model can never be influenced by malicious prose.
 
 ## Portfolio service
 
-Portfolio v1 is a Python service, not a trade-entry UI. Recording a transaction only
+Portfolio v1 is a Python service with a [bookkeeping CLI](portfolio-cli.md). Recording a transaction only
 records an externally executed trade; it never executes anything or contacts a broker.
 
 ```python
@@ -170,15 +170,16 @@ certainty; do not treat this local unencrypted database as a credential vault.
 
 ## Offline verification
 
-Run the full offline suite, excluding the three pre-existing live connectivity scripts:
+Run the complete offline suite (legacy connectivity checks are import-safe):
 
 ```sh
-PYTHON_DOTENV_DISABLED=1 .venv/bin/python -B -m unittest discover -s tests -p 'test_[dmprv]*.py' -v
+PYTHON_DOTENV_DISABLED=1 .venv/bin/python -B -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
 CLI tests use temporary databases; no test writes to `data/magi.db`. Provider-facing
-tests block network access and use fake responses. Never run the older live scripts
-(`test_openai.py`, `test_gemini.py`, `test_claude.py`) as part of offline verification.
+tests block network access and use fake responses. The connectivity modules
+(`test_openai.py`, `test_gemini.py`, `test_claude.py`) do nothing on import/discovery;
+running them explicitly as scripts remains an opt-in live connectivity check.
 
 Before Phase 6, review backup/encryption policy, schema migration/version dispatch,
 lexical relevance quality, timestamp/ticker/account conventions, correction records,
