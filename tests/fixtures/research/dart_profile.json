@@ -1,0 +1,13 @@
+{
+  "status": "000",
+  "message": "정상",
+  "corp_code": "00126380",
+  "corp_name": "예시전자",
+  "corp_name_eng": "EXAMPLE ELECTRONICS",
+  "stock_name": "예시전자",
+  "stock_code": "005930",
+  "ceo_nm": "예시 대표",
+  "corp_cls": "Y",
+  "hm_url": "https://example.invalid",
+  "ir_url": "https://example.invalid/ir"
+}

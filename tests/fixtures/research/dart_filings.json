@@ -1,0 +1,25 @@
+{
+  "status": "000",
+  "message": "정상",
+  "total_page": 1,
+  "list": [
+    {
+      "corp_code": "00126380",
+      "corp_name": "예시전자",
+      "rcept_no": "20260901000001",
+      "report_nm": "[기재정정]반기보고서",
+      "flr_nm": "예시전자",
+      "rcept_dt": "20260901",
+      "rm": "정"
+    },
+    {
+      "corp_code": "00126380",
+      "corp_name": "예시전자",
+      "rcept_no": "20260814000001",
+      "report_nm": "반기보고서",
+      "flr_nm": "예시전자",
+      "rcept_dt": "20260814",
+      "rm": ""
+    }
+  ]
+}

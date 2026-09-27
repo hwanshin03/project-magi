@@ -39,7 +39,8 @@ def check_sensitive(value):
             r'API_KEY|CLIENT_ID|TOKEN|SECRET|PASSWORD|CREDENTIAL|PRIVATE_KEY|AUTH', k, re.I)]
         if ENV_PATH.exists():
             values = dotenv_values(stream=io.StringIO(ENV_PATH.read_text(encoding='utf-8')))
-            secrets.extend(v for v in values.values() if v)
+            # SEC identification is public contact metadata, not a credential.
+            secrets.extend(v for k, v in values.items() if v and k != 'SEC_USER_AGENT')
     except (OSError, ValueError):
         raise StorageError('Cannot safely validate persistence content.') from None
 

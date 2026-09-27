@@ -310,3 +310,10 @@ semantics, stale-data behavior, and presentation-only dust thresholds.
 Phase 7A adds offline, immutable research sources, evidence, claims, citation
 validation, bounded views, and versioned JSON snapshots. It does not fetch research
 or change agent decisions. See [research foundation](docs/research-foundation.md).
+
+### Official research adapters
+
+Phase 7B adds explicit SEC EDGAR and OpenDART research commands, official filing
+citations and Decimal-safe financial evidence. Agents are not connected to these
+sources yet. See [official adapter documentation](docs/official-research-adapters.md)
+for configuration, commands, retry behavior, offline fixtures and known limits.

@@ -53,6 +53,9 @@ def decode(node):
         return m.FrozenMetadata(tuple((k,decode(v)) for k,v in node['$map']))
     if keys=={'$model','fields'}:
         cls=MODEL_TYPES[node['$model']];raw=node['fields']
+        # Phase 7A snapshots predate optional per-fact context metadata.
+        if cls is m.EvidenceItem and isinstance(raw,dict) and 'metadata' not in raw:
+            raw={**raw,'metadata':{'$map':[]}}
         if not isinstance(raw,dict) or set(raw)!={f.name for f in fields(cls)}: raise ValueError('Invalid model fields')
         values={k:decode(v) for k,v in raw.items()}
         result=cls(**{f.name:values[f.name] for f in fields(cls) if f.init})

@@ -19,7 +19,7 @@ def safe_text(value):
         try:
             parts = urlsplit(unquote(match.group()))
             if parts.username is not None or parts.password is not None or any(
-                    re.search(r'(?i)token|secret|password|api[-_]?key|authorization|credential|signature', k)
+                    re.search(r'(?i)token|secret|password|api[-_]?key|crtfc_key|authorization|credential|signature', k)
                     for k,v in parse_qsl(parts.query+'&'+parts.fragment,keep_blank_values=True)):
                 raise ValueError()
         except ValueError:
@@ -48,7 +48,7 @@ def url(value):
                 or '\\' in value or re.search(r'%(?![0-9A-Fa-f]{2})',value)
                 or not parts.netloc or parts.port == 0):
             raise ValueError()
-        if any(re.search(r'(?i)token|secret|password|api[-_]?key|authorization|credential|signature', k)
+        if any(re.search(r'(?i)token|secret|password|api[-_]?key|crtfc_key|authorization|credential|signature', k)
                for k,v in parse_qsl(parts.query+'&'+parts.fragment,keep_blank_values=True)):
             raise ValueError()
     except ValueError:

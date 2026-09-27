@@ -1,0 +1,22 @@
+{
+  "fields": [
+    "cik",
+    "name",
+    "ticker",
+    "exchange"
+  ],
+  "data": [
+    [
+      1045810,
+      "EXAMPLE COMPUTE CORPORATION",
+      "NVDA",
+      "Nasdaq"
+    ],
+    [
+      12345,
+      "EXAMPLE OTHER",
+      "OTHER",
+      "NYSE"
+    ]
+  ]
+}

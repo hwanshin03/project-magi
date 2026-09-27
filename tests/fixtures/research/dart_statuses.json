@@ -1,0 +1,50 @@
+[
+  {
+    "status": "010",
+    "message": "Synthetic status fixture"
+  },
+  {
+    "status": "011",
+    "message": "Synthetic status fixture"
+  },
+  {
+    "status": "012",
+    "message": "Synthetic status fixture"
+  },
+  {
+    "status": "013",
+    "message": "Synthetic status fixture"
+  },
+  {
+    "status": "014",
+    "message": "Synthetic status fixture"
+  },
+  {
+    "status": "020",
+    "message": "Synthetic status fixture"
+  },
+  {
+    "status": "021",
+    "message": "Synthetic status fixture"
+  },
+  {
+    "status": "100",
+    "message": "Synthetic status fixture"
+  },
+  {
+    "status": "101",
+    "message": "Synthetic status fixture"
+  },
+  {
+    "status": "800",
+    "message": "Synthetic status fixture"
+  },
+  {
+    "status": "900",
+    "message": "Synthetic status fixture"
+  },
+  {
+    "status": "901",
+    "message": "Synthetic status fixture"
+  }
+]

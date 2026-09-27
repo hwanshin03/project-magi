@@ -1,0 +1,53 @@
+{
+  "cik": "1045810",
+  "name": "EXAMPLE COMPUTE CORPORATION",
+  "tickers": [
+    "NVDA"
+  ],
+  "exchanges": [
+    "Nasdaq"
+  ],
+  "sic": "3674",
+  "fiscalYearEnd": "0128",
+  "filings": {
+    "recent": {
+      "accessionNumber": [
+        "0001045810-26-000004",
+        "0001045810-26-000003",
+        "0001045810-26-000002",
+        "0001045810-26-000001"
+      ],
+      "filingDate": [
+        "2026-09-01",
+        "2026-08-28",
+        "2026-05-28",
+        "2026-02-28"
+      ],
+      "reportDate": [
+        "2026-07-31",
+        "2026-07-31",
+        "2026-05-28",
+        "2026-01-31"
+      ],
+      "form": [
+        "10-Q/A",
+        "10-Q",
+        "8-K",
+        "10-K"
+      ],
+      "primaryDocument": [
+        "amended.htm",
+        "quarter.htm",
+        "current.htm",
+        "annual.htm"
+      ],
+      "acceptanceDateTime": [
+        "2026-09-01T16:00:00Z",
+        "2026-08-28T16:00:00Z",
+        "2026-05-28T16:00:00Z",
+        "2026-02-28T16:00:00Z"
+      ]
+    },
+    "files": []
+  }
+}

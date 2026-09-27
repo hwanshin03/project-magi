@@ -1,0 +1,39 @@
+{
+  "status": "000",
+  "message": "정상",
+  "list": [
+    {
+      "rcept_no": "20251114000001",
+      "reprt_code": "11014",
+      "bsns_year": "2025",
+      "corp_code": "00126380",
+      "sj_div": "IS",
+      "sj_nm": "손익계산서",
+      "account_id": "ifrs-full_Revenue",
+      "account_nm": "매출액",
+      "account_detail": "연결재무제표",
+      "thstrm_nm": "당기",
+      "thstrm_amount": "1,234,567.890123456789",
+      "frmtrm_nm": "전기",
+      "frmtrm_amount": "1,100,000",
+      "bfefrmtrm_nm": "전전기",
+      "bfefrmtrm_amount": "",
+      "currency": "KRW",
+      "ord": "1"
+    },
+    {
+      "rcept_no": "20251114000001",
+      "reprt_code": "11014",
+      "bsns_year": "2025",
+      "corp_code": "00126380",
+      "sj_div": "BS",
+      "sj_nm": "재무상태표",
+      "account_id": "ifrs-full_Assets",
+      "account_nm": "자산총계",
+      "thstrm_amount": "",
+      "frmtrm_amount": "-",
+      "currency": "KRW",
+      "ord": "2"
+    }
+  ]
+}

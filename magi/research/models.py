@@ -90,7 +90,7 @@ class FrozenMetadata(Mapping):
         if len(keys)!=len(set(keys)):
             raise ValueError('Duplicate metadata key')
         for k in keys:
-            if re.search(r'(?i)secret|token|password|authorization|api.?key|client.?id|credential|\.env',k):
+            if re.search(r'(?i)secret|token|password|authorization|api.?key|crtfc_key|client.?id|credential|\.env',k):
                 raise ValueError('Sensitive metadata key')
         object.__setattr__(self,'entries',tuple(sorted((k,freeze(v)) for k,v in pairs)))
 
@@ -224,8 +224,11 @@ class EvidenceItem:
     as_of: Optional[datetime] = None
     source_locator: Optional[SourceLocator] = None
     extraction_confidence: Optional[Decimal] = None
+    metadata: FrozenMetadata = field(default_factory=FrozenMetadata)
 
     def __post_init__(self):
+        if not isinstance(self.metadata,Mapping): raise ValueError('Metadata requires a mapping')
+        object.__setattr__(self,'metadata',freeze(self.metadata))
         identity(self.source_id,'',None)
         if not self.source_id: raise ValueError('Source reference required')
         common(self.subject,self.ticker);enum(self.category,Category);text(self.statement)
