@@ -324,3 +324,10 @@ Phase 7C selects citation-backed financial metrics from official EvidencePacks,
 calculates comparable growth and margins with Decimal, and renders compact Korean
 or English summaries. It adds no LLM interpretation or persistence. See
 [company research snapshots](docs/company-research-snapshot.md) for policies and CLI examples.
+
+### Offline news evidence foundation
+
+Phase 7D adds provider-neutral news articles, attributed evidence, events, catalysts,
+duplicate/event groups, bounded views and Korean/English presentation. It includes
+synthetic offline fixtures only; no live news provider, agent connection or news
+persistence is enabled. See [news evidence foundation](docs/news-evidence-foundation.md).

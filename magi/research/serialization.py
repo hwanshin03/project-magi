@@ -15,6 +15,16 @@ ENUM_TYPES = {cls.__name__:cls for cls in (m.SourceType,m.Authority,m.Category,m
 ROOT_TYPES = (m.ResearchSource,m.EvidenceItem,m.ResearchClaim,m.EvidencePack,sm.CompanyResearchSnapshot,sm.BaseMetric,sm.DerivedMetric)
 
 
+# Additive offline news types; existing research and snapshot contracts are unchanged.
+from .news import models as nm
+_NEWS_MODELS = (nm.NewsClassification,nm.NewsArticle,nm.ResearchEvent,
+                nm.ResearchCatalyst,nm.EventCluster,nm.NewsEvidencePack)
+MODEL_TYPES.update({cls.__name__:cls for cls in _NEWS_MODELS})
+ENUM_TYPES.update({cls.__name__:cls for cls in (nm.EventType,nm.CatalystType,nm.Direction,
+    nm.TimeHorizon,nm.VerificationStatus,nm.ContentKind,nm.Relevance,nm.Freshness,nm.Sentiment,nm.NewsWarning)})
+ROOT_TYPES += _NEWS_MODELS
+
+
 def encode(value):
     if isinstance(value,Enum): return {'$enum':type(value).__name__,'value':value.value}
     if isinstance(value,m.FrozenMetadata): return {'$map':[[k,encode(v)] for k,v in value.entries]}
