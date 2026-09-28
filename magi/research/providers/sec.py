@@ -86,7 +86,9 @@ class SECProvider:
     def _source(self,issuer,acc,form,filed,report,stamp,document=None,accepted=None):
         acc=accession(acc)
         base='https://www.sec.gov/Archives/edgar/data/'+str(int(issuer.provider_issuer_id))+'/'+acc.replace('-','')+'/'
-        if document and (not isinstance(document,str) or not re.fullmatch(r'[A-Za-z0-9_.-]+',document)):
+        if document and (not isinstance(document,str) or not all(
+                segment not in ('','.','..') and re.fullmatch(r'[A-Za-z0-9_.-]+',segment)
+                for segment in document.split('/'))):
             raise ValueError('Invalid primary document')
         published=datetime.fromisoformat(accepted.replace('Z','+00:00')) if accepted else midnight(filed)
         return ResearchSource(SourceType.SEC_FILING,Authority.PRIMARY,'SEC',issuer.company_name+' '+form,

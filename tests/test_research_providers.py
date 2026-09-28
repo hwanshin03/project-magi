@@ -445,3 +445,31 @@ class ProviderTests(unittest.TestCase):
         import importlib
         with patch('httpx.Client',side_effect=AssertionError('No client construction on import')):
             importlib.reload(__import__('magi.research.providers',fromlist=['']))
+
+    def test_sec_primary_document_relative_directories(self):
+        data=fixture('sec_submissions.json')
+        data['filings']['recent']['primaryDocument'][0]='xslF345X05/ownership.xml'
+        self.overrides['/submissions/CIK0001045810.json']=data
+        provider=self.provider()
+        source=provider.list_filings('NVDA').require()[0]
+        self.assertTrue(source.url.endswith('/xslF345X05/ownership.xml'))
+        self.assertIsNone(provider.get_financial_facts('NVDA').error)
+        issuer=provider.resolve_issuer('NVDA').require()
+        for document in ('../evil.xml','dir/../evil.xml','/absolute.xml','https://evil.invalid/x','dir//x','./x'):
+            with self.subTest(document=document),self.assertRaises(ValueError):
+                provider._source(issuer,'0001045810-26-000004','4','2026-09-01',None,NOW,document)
+
+    def test_dart_alphanumeric_directory_and_parsed_cache(self):
+        raw=binary('dart_corps.xml').replace(b'</result>',b'<list><corp_code>00888888</corp_code><corp_name>Example Preferred</corp_name><stock_code>1234A0</stock_code><modify_date>20260901</modify_date></list></result>')
+        self.overrides['/api/corpCode.xml']=zipped(raw)
+        p=self.provider('DART')
+        self.assertEqual(p.resolve_issuer('005930').require().ticker,'005930')
+        records=p._codes()
+        self.assertIs(records,p._codes())
+        self.assertEqual(p.resolve_issuer('1234A0').require().ticker,'1234A0')
+        self.assertEqual(len(self.requests),1)
+        p.http._cache.clear()
+        self.assertIsNot(records,p._codes())
+        self.assertEqual(len(self.requests),2)
+        p.close()
+        self.assertIsNone(p._code_records)

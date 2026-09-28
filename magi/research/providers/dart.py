@@ -60,13 +60,16 @@ class DARTProvider:
     def __init__(self,*,http=None,**options):
         self.http=http if http is not None else ResearchHTTP('DART',**options)
         self._owns=http is None
+        self._codes_payload=None;self._code_records=None
     def close(self):
+        self._codes_payload=None;self._code_records=None
         if self._owns: self.http.close()
     def __enter__(self): return self
     def __exit__(self,*args): self.close()
 
     def _codes(self):
         payload=self.http.get('/api/corpCode.xml')
+        if payload is self._codes_payload: return self._code_records
         try:
             if b'<!DOCTYPE' in payload.body.upper() or b'<!ENTITY' in payload.body.upper(): raise ValueError('Unsafe XML')
             if not payload.body.startswith(b'PK'):
@@ -86,7 +89,8 @@ class DARTProvider:
                 modified=row.findtext('modify_date') or None
                 if modified: stamp(modified)
                 records.append(Issuer('DART',code,row.findtext('corp_name'),'KR',payload.retrieved_at,stock,modified_at=modified))
-            return records
+            self._codes_payload=payload;self._code_records=tuple(records)
+            return self._code_records
         except (BadZipFile,ElementTree.ParseError,ValueError,RuntimeError,KeyError):
             raise ResearchError(ErrorCode.INVALID_RESPONSE) from None
 
@@ -95,7 +99,7 @@ class DARTProvider:
         name=identifier.strip()
         if name.isdigit() and len(name) not in (6,8): raise ResearchError(ErrorCode.INVALID_REQUEST)
         records=self._codes()
-        matches=[r for r in records if (r.ticker==name if re.fullmatch(r'\d{6}',name) else
+        matches=[r for r in records if (r.ticker==name if re.fullmatch(r'[0-9][0-9A-Z]{5}',name) else
             r.provider_issuer_id==name if re.fullmatch(r'\d{8}',name) else r.company_name==name)]
         if not matches: raise ResearchError(ErrorCode.NOT_FOUND)
         if len(matches)!=1: raise ResearchError(ErrorCode.AMBIGUOUS)

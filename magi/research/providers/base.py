@@ -66,7 +66,7 @@ class Issuer:
         text(self.company_name);instant(self.retrieved_at)
         text(self.exchange,optional=True);text(self.modified_at,optional=True)
         if self.ticker is not None:
-            pattern=r'[A-Z][A-Z0-9.-]{0,15}' if self.provider=='SEC' else r'\d{6}'
+            pattern=r'[A-Z][A-Z0-9.-]{0,15}' if self.provider=='SEC' else r'[0-9][0-9A-Z]{5}'
             if not re.fullmatch(pattern,self.ticker): raise ValueError('Invalid issuer ticker')
 
     @property
