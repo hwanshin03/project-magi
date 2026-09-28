@@ -35,11 +35,13 @@ def plain(value):
 def main(argv=None,*,provider=None):
     parser=argparse.ArgumentParser(prog='python main.py research',description='Explicit official-source research; no recommendations or trades.')
     parser.add_argument('provider',choices=('sec','dart'))
-    parser.add_argument('command',choices=('issuer','profile','filings','facts','financials','pack'))
+    parser.add_argument('command',choices=('issuer','profile','filings','facts','financials','pack','snapshot'))
     parser.add_argument('identifier')
     parser.add_argument('--language',choices=('ko','en'),default='ko')
     parser.add_argument('--year',type=int)
     parser.add_argument('--report',choices=('annual','q1','half','q3'),default='annual')
+    parser.add_argument('--period',choices=('annual','quarter'),default='annual',help='SEC snapshot period')
+    parser.add_argument('--currency',help='Explicit reporting currency when evidence contains multiple currencies')
     parser.add_argument('--division',choices=('CFS','OFS'),default='CFS')
     parser.add_argument('--concept',action='append',help='SEC concept filter; may repeat')
     parser.add_argument('--max-facts',type=int,default=25000)
@@ -47,8 +49,8 @@ def main(argv=None,*,provider=None):
     parser.add_argument('--end',help='DART filing end YYYYMMDD')
     parser.add_argument('--page',type=int,default=1)
     args=parser.parse_args(argv)
-    if args.provider=='dart' and args.command in ('facts','financials','pack') and args.year is None:
-        parser.error('--year is required for DART financials/pack')
+    if args.provider=='dart' and args.command in ('facts','financials','pack','snapshot') and args.year is None:
+        parser.error('--year is required for DART financials/pack/snapshot')
     owned=provider is None
     try:
         if provider is None: provider=SECProvider() if args.provider=='sec' else DARTProvider()
@@ -58,14 +60,24 @@ def main(argv=None,*,provider=None):
             options={} if args.provider=='sec' else dict(start=args.start,end=args.end,page=args.page)
             result=provider.list_filings(args.identifier,**options)
         else:
+            if args.command=='snapshot' and args.provider=='sec' and args.concept is None:
+                from .snapshot_policy import SEC_CONCEPTS
+                args.concept=SEC_CONCEPTS
             options=dict(concepts=args.concept,max_facts=args.max_facts) if args.provider=='sec' else dict(year=args.year,report=args.report,division=args.division)
-            method=provider.build_evidence_pack if args.command=='pack' else provider.get_financial_facts
+            method=provider.build_evidence_pack if args.command in ('pack','snapshot') else provider.get_financial_facts
             result=method(args.identifier,**options)
         if result.error: raise ResearchError(result.error)
+        if args.command=='snapshot':
+            from .snapshot import build_snapshot
+            from .snapshot_presentation import render_snapshot
+            snapshot=build_snapshot(result.data,report=args.period if args.provider=='sec' else args.report,
+                year=args.year,currency=args.currency,division=args.division)
+            print(render_snapshot(snapshot,language=args.language))
+            return 0
         content=json.dumps(plain(result.data),ensure_ascii=False,indent=2,allow_nan=False)
         safe_text(content)
         print('=== '+args.provider.upper()+' '+LABELS[args.language][args.command]+' ===')
-        if args.provider=='dart' and args.command in ('facts','financials','pack'):
+        if args.provider=='dart' and args.command in ('facts','financials','pack','snapshot'):
             print(REPORT_LABELS[args.language][args.report])
         print(content)
         return 0

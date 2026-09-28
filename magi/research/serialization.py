@@ -6,11 +6,13 @@ from enum import Enum
 import json
 from . import models as m
 from .security import safe_text
+from . import snapshot_models as sm
 
 MODEL_TYPES = {cls.__name__:cls for cls in (m.ResearchSource,m.SourceLocator,m.EvidenceItem,
-    m.ResearchClaim,m.EvidenceRelation,m.EvidencePack)}
-ENUM_TYPES = {cls.__name__:cls for cls in (m.SourceType,m.Authority,m.Category,m.ClaimStatus,m.RelationKind,m.WarningCode)}
-ROOT_TYPES = (m.ResearchSource,m.EvidenceItem,m.ResearchClaim,m.EvidencePack)
+    m.ResearchClaim,m.EvidenceRelation,m.EvidencePack,sm.FinancialPeriod,sm.SnapshotIdentity,
+    sm.MetricValue,sm.BaseMetric,sm.DerivedMetric,sm.ReportingContext,sm.CompanyResearchSnapshot)}
+ENUM_TYPES = {cls.__name__:cls for cls in (m.SourceType,m.Authority,m.Category,m.ClaimStatus,m.RelationKind,m.WarningCode,sm.MetricStatus,sm.PeriodKind,sm.Calculation)}
+ROOT_TYPES = (m.ResearchSource,m.EvidenceItem,m.ResearchClaim,m.EvidencePack,sm.CompanyResearchSnapshot,sm.BaseMetric,sm.DerivedMetric)
 
 
 def encode(value):

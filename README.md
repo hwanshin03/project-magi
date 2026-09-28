@@ -317,3 +317,10 @@ Phase 7B adds explicit SEC EDGAR and OpenDART research commands, official filing
 citations and Decimal-safe financial evidence. Agents are not connected to these
 sources yet. See [official adapter documentation](docs/official-research-adapters.md)
 for configuration, commands, retry behavior, offline fixtures and known limits.
+
+### Deterministic company snapshots
+
+Phase 7C selects citation-backed financial metrics from official EvidencePacks,
+calculates comparable growth and margins with Decimal, and renders compact Korean
+or English summaries. It adds no LLM interpretation or persistence. See
+[company research snapshots](docs/company-research-snapshot.md) for policies and CLI examples.
