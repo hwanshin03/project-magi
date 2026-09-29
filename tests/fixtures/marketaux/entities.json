@@ -1,0 +1,112 @@
+{
+  "nvda": {
+    "meta": {
+      "found": 1,
+      "returned": 1,
+      "limit": 100,
+      "page": 1
+    },
+    "data": [
+      {
+        "symbol": "NVDA",
+        "name": "NVIDIA Corporation",
+        "type": "equity",
+        "industry": "Semiconductors",
+        "exchange": "NASDAQ",
+        "exchange_long": "NASDAQ Stock Market",
+        "country": "us"
+      }
+    ]
+  },
+  "ambiguous": {
+    "meta": {
+      "found": 2,
+      "returned": 2,
+      "limit": 100,
+      "page": 1
+    },
+    "data": [
+      {
+        "symbol": "NVDA",
+        "name": "NVIDIA Corporation",
+        "type": "equity",
+        "industry": "Semiconductors",
+        "exchange": "NASDAQ",
+        "exchange_long": "NASDAQ Stock Market",
+        "country": "us"
+      },
+      {
+        "symbol": "NVDA",
+        "name": "NVIDIA Corporation",
+        "type": "equity",
+        "industry": "Semiconductors",
+        "exchange": "SYNTHETIC_SECOND",
+        "exchange_long": "NASDAQ Stock Market",
+        "country": "us"
+      }
+    ]
+  },
+  "korean": {
+    "meta": {
+      "found": 1,
+      "returned": 1,
+      "limit": 100,
+      "page": 1
+    },
+    "data": [
+      {
+        "symbol": "005930.FIXTURE",
+        "name": "Samsung Electronics",
+        "type": "equity",
+        "industry": "Electronics",
+        "exchange": "SYNTHETIC_KR",
+        "exchange_long": "Synthetic Korean exchange — not a verified symbol",
+        "country": "kr"
+      }
+    ]
+  },
+  "empty": {
+    "meta": {
+      "found": 0,
+      "returned": 0,
+      "limit": 100,
+      "page": 1
+    },
+    "data": []
+  },
+  "wrong_country": {
+    "meta": {
+      "found": 1,
+      "returned": 1,
+      "limit": 100,
+      "page": 1
+    },
+    "data": [
+      {
+        "symbol": "NVDA",
+        "name": "NVIDIA Corporation",
+        "type": "equity",
+        "industry": "Semiconductors",
+        "exchange": "NASDAQ",
+        "exchange_long": "NASDAQ Stock Market",
+        "country": "ca"
+      }
+    ]
+  },
+  "truncated": {
+    "meta": {
+      "found": 2
+    },
+    "data": [
+      {
+        "symbol": "NVDA",
+        "name": "NVIDIA Corporation",
+        "type": "equity",
+        "industry": "Semiconductors",
+        "exchange": "NASDAQ",
+        "exchange_long": "NASDAQ Stock Market",
+        "country": "us"
+      }
+    ]
+  }
+}

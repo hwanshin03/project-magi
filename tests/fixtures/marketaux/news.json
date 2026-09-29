@@ -1,0 +1,860 @@
+{
+  "one": {
+    "meta": {
+      "found": 1,
+      "returned": 1,
+      "limit": 100,
+      "page": 1
+    },
+    "data": [
+      {
+        "uuid": "fixture-nvda-001",
+        "title": "NVIDIA announces a synthetic fixture update",
+        "description": "Example News reports that NVIDIA announced a test update.",
+        "snippet": "Synthetic provider excerpt only.",
+        "url": "https://wire.example.invalid/news/nvda-1?utm_source=fixture",
+        "language": "en",
+        "published_at": "2026-09-27T12:30:00Z",
+        "source": "wire.example.invalid",
+        "entities": [
+          {
+            "symbol": "NVDA",
+            "name": "NVIDIA Corporation",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": [
+              {
+                "highlight": "<em>NVIDIA</em> announces a synthetic fixture update.",
+                "sentiment": 0.25,
+                "highlighted_in": "title"
+              },
+              {
+                "highlight": "<script>alert(1)</script><b>Synthetic report</b>",
+                "sentiment": -0.1,
+                "highlighted_in": "main_text"
+              }
+            ]
+          },
+          {
+            "symbol": "PEER",
+            "name": "Synthetic Peer",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": []
+          }
+        ],
+        "similar": [
+          {
+            "uuid": "fixture-nvda-002",
+            "url": "https://independent.example.invalid/nvda-2",
+            "title": "Related synthetic report"
+          }
+        ]
+      }
+    ]
+  },
+  "free_three": {
+    "meta": {
+      "found": 40,
+      "returned": 3,
+      "limit": 3,
+      "page": 1
+    },
+    "data": [
+      {
+        "uuid": "fixture-nvda-001",
+        "title": "NVIDIA announces a synthetic fixture update",
+        "description": "Example News reports that NVIDIA announced a test update.",
+        "snippet": "Synthetic provider excerpt only.",
+        "url": "https://wire.example.invalid/news/nvda-1?utm_source=fixture",
+        "language": "en",
+        "published_at": "2026-09-27T12:30:00Z",
+        "source": "wire.example.invalid",
+        "entities": [
+          {
+            "symbol": "NVDA",
+            "name": "NVIDIA Corporation",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": [
+              {
+                "highlight": "<em>NVIDIA</em> announces a synthetic fixture update.",
+                "sentiment": 0.25,
+                "highlighted_in": "title"
+              },
+              {
+                "highlight": "<script>alert(1)</script><b>Synthetic report</b>",
+                "sentiment": -0.1,
+                "highlighted_in": "main_text"
+              }
+            ]
+          },
+          {
+            "symbol": "PEER",
+            "name": "Synthetic Peer",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": []
+          }
+        ],
+        "similar": [
+          {
+            "uuid": "fixture-nvda-002",
+            "url": "https://independent.example.invalid/nvda-2",
+            "title": "Related synthetic report"
+          }
+        ]
+      },
+      {
+        "uuid": "fixture-nvda-002",
+        "title": "NVIDIA announces a synthetic fixture update",
+        "description": "Example News reports that NVIDIA announced a test update.",
+        "snippet": "Synthetic provider excerpt only.",
+        "url": "https://independent.example.invalid/nvda-2",
+        "language": "en",
+        "published_at": "2026-09-27T12:30:00Z",
+        "source": "independent.example.invalid",
+        "entities": [
+          {
+            "symbol": "NVDA",
+            "name": "NVIDIA Corporation",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": [
+              {
+                "highlight": "<em>NVIDIA</em> announces a synthetic fixture update.",
+                "sentiment": 0.25,
+                "highlighted_in": "title"
+              },
+              {
+                "highlight": "<script>alert(1)</script><b>Synthetic report</b>",
+                "sentiment": -0.1,
+                "highlighted_in": "main_text"
+              }
+            ]
+          },
+          {
+            "symbol": "PEER",
+            "name": "Synthetic Peer",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": []
+          }
+        ],
+        "similar": []
+      },
+      {
+        "uuid": "fixture-nvda-003",
+        "title": "NVIDIA announces a synthetic fixture update",
+        "description": "Example News reports that NVIDIA announced a test update.",
+        "snippet": "Synthetic provider excerpt only.",
+        "url": "https://third.example.invalid/nvda-3",
+        "language": "en",
+        "published_at": "2026-09-27T12:30:00Z",
+        "source": "third.example.invalid",
+        "entities": [
+          {
+            "symbol": "NVDA",
+            "name": "NVIDIA Corporation",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": [
+              {
+                "highlight": "<em>NVIDIA</em> announces a synthetic fixture update.",
+                "sentiment": 0.25,
+                "highlighted_in": "title"
+              },
+              {
+                "highlight": "<script>alert(1)</script><b>Synthetic report</b>",
+                "sentiment": -0.1,
+                "highlighted_in": "main_text"
+              }
+            ]
+          },
+          {
+            "symbol": "PEER",
+            "name": "Synthetic Peer",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": []
+          }
+        ],
+        "similar": []
+      }
+    ]
+  },
+  "duplicate_uuid": {
+    "meta": {
+      "found": 2,
+      "returned": 2,
+      "limit": 100,
+      "page": 1
+    },
+    "data": [
+      {
+        "uuid": "fixture-nvda-001",
+        "title": "NVIDIA announces a synthetic fixture update",
+        "description": "Example News reports that NVIDIA announced a test update.",
+        "snippet": "Synthetic provider excerpt only.",
+        "url": "https://wire.example.invalid/news/nvda-1?utm_source=fixture",
+        "language": "en",
+        "published_at": "2026-09-27T12:30:00Z",
+        "source": "wire.example.invalid",
+        "entities": [
+          {
+            "symbol": "NVDA",
+            "name": "NVIDIA Corporation",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": [
+              {
+                "highlight": "<em>NVIDIA</em> announces a synthetic fixture update.",
+                "sentiment": 0.25,
+                "highlighted_in": "title"
+              },
+              {
+                "highlight": "<script>alert(1)</script><b>Synthetic report</b>",
+                "sentiment": -0.1,
+                "highlighted_in": "main_text"
+              }
+            ]
+          },
+          {
+            "symbol": "PEER",
+            "name": "Synthetic Peer",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": []
+          }
+        ],
+        "similar": [
+          {
+            "uuid": "fixture-nvda-002",
+            "url": "https://independent.example.invalid/nvda-2",
+            "title": "Related synthetic report"
+          }
+        ]
+      },
+      {
+        "uuid": "fixture-nvda-001",
+        "title": "NVIDIA announces a synthetic fixture update",
+        "description": "Example News reports that NVIDIA announced a test update.",
+        "snippet": "Synthetic provider excerpt only.",
+        "url": "https://wire.example.invalid/news/nvda-1?utm_source=fixture",
+        "language": "en",
+        "published_at": "2026-09-27T12:30:00Z",
+        "source": "wire.example.invalid",
+        "entities": [
+          {
+            "symbol": "NVDA",
+            "name": "NVIDIA Corporation",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": [
+              {
+                "highlight": "<em>NVIDIA</em> announces a synthetic fixture update.",
+                "sentiment": 0.25,
+                "highlighted_in": "title"
+              },
+              {
+                "highlight": "<script>alert(1)</script><b>Synthetic report</b>",
+                "sentiment": -0.1,
+                "highlighted_in": "main_text"
+              }
+            ]
+          },
+          {
+            "symbol": "PEER",
+            "name": "Synthetic Peer",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": []
+          }
+        ],
+        "similar": [
+          {
+            "uuid": "fixture-nvda-002",
+            "url": "https://independent.example.invalid/nvda-2",
+            "title": "Related synthetic report"
+          }
+        ]
+      }
+    ]
+  },
+  "duplicate_url": {
+    "meta": {
+      "found": 2,
+      "returned": 2,
+      "limit": 100,
+      "page": 1
+    },
+    "data": [
+      {
+        "uuid": "fixture-nvda-001",
+        "title": "NVIDIA announces a synthetic fixture update",
+        "description": "Example News reports that NVIDIA announced a test update.",
+        "snippet": "Synthetic provider excerpt only.",
+        "url": "https://wire.example.invalid/news/nvda-1?utm_source=fixture",
+        "language": "en",
+        "published_at": "2026-09-27T12:30:00Z",
+        "source": "wire.example.invalid",
+        "entities": [
+          {
+            "symbol": "NVDA",
+            "name": "NVIDIA Corporation",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": [
+              {
+                "highlight": "<em>NVIDIA</em> announces a synthetic fixture update.",
+                "sentiment": 0.25,
+                "highlighted_in": "title"
+              },
+              {
+                "highlight": "<script>alert(1)</script><b>Synthetic report</b>",
+                "sentiment": -0.1,
+                "highlighted_in": "main_text"
+              }
+            ]
+          },
+          {
+            "symbol": "PEER",
+            "name": "Synthetic Peer",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": []
+          }
+        ],
+        "similar": [
+          {
+            "uuid": "fixture-nvda-002",
+            "url": "https://independent.example.invalid/nvda-2",
+            "title": "Related synthetic report"
+          }
+        ]
+      },
+      {
+        "uuid": "fixture-alternate-id",
+        "title": "NVIDIA announces a synthetic fixture update",
+        "description": "Example News reports that NVIDIA announced a test update.",
+        "snippet": "Synthetic provider excerpt only.",
+        "url": "https://wire.example.invalid/news/nvda-1?utm_source=fixture",
+        "language": "en",
+        "published_at": "2026-09-27T12:30:00Z",
+        "source": "wire.example.invalid",
+        "entities": [
+          {
+            "symbol": "NVDA",
+            "name": "NVIDIA Corporation",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": [
+              {
+                "highlight": "<em>NVIDIA</em> announces a synthetic fixture update.",
+                "sentiment": 0.25,
+                "highlighted_in": "title"
+              },
+              {
+                "highlight": "<script>alert(1)</script><b>Synthetic report</b>",
+                "sentiment": -0.1,
+                "highlighted_in": "main_text"
+              }
+            ]
+          },
+          {
+            "symbol": "PEER",
+            "name": "Synthetic Peer",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": []
+          }
+        ],
+        "similar": [
+          {
+            "uuid": "fixture-nvda-002",
+            "url": "https://independent.example.invalid/nvda-2",
+            "title": "Related synthetic report"
+          }
+        ]
+      }
+    ]
+  },
+  "similar": {
+    "meta": {
+      "found": 2,
+      "returned": 2,
+      "limit": 100,
+      "page": 1
+    },
+    "data": [
+      {
+        "uuid": "fixture-nvda-001",
+        "title": "NVIDIA announces a synthetic fixture update",
+        "description": "Example News reports that NVIDIA announced a test update.",
+        "snippet": "Synthetic provider excerpt only.",
+        "url": "https://wire.example.invalid/news/nvda-1?utm_source=fixture",
+        "language": "en",
+        "published_at": "2026-09-27T12:30:00Z",
+        "source": "wire.example.invalid",
+        "entities": [
+          {
+            "symbol": "NVDA",
+            "name": "NVIDIA Corporation",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": [
+              {
+                "highlight": "<em>NVIDIA</em> announces a synthetic fixture update.",
+                "sentiment": 0.25,
+                "highlighted_in": "title"
+              },
+              {
+                "highlight": "<script>alert(1)</script><b>Synthetic report</b>",
+                "sentiment": -0.1,
+                "highlighted_in": "main_text"
+              }
+            ]
+          },
+          {
+            "symbol": "PEER",
+            "name": "Synthetic Peer",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": []
+          }
+        ],
+        "similar": [
+          {
+            "uuid": "fixture-nvda-002",
+            "url": "https://independent.example.invalid/nvda-2",
+            "title": "Related synthetic report"
+          }
+        ]
+      },
+      {
+        "uuid": "fixture-nvda-002",
+        "title": "NVIDIA announces a synthetic fixture update",
+        "description": "Example News reports that NVIDIA announced a test update.",
+        "snippet": "Synthetic provider excerpt only.",
+        "url": "https://independent.example.invalid/nvda-2",
+        "language": "en",
+        "published_at": "2026-09-27T12:30:00Z",
+        "source": "independent.example.invalid",
+        "entities": [
+          {
+            "symbol": "NVDA",
+            "name": "NVIDIA Corporation",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": [
+              {
+                "highlight": "<em>NVIDIA</em> announces a synthetic fixture update.",
+                "sentiment": 0.25,
+                "highlighted_in": "title"
+              },
+              {
+                "highlight": "<script>alert(1)</script><b>Synthetic report</b>",
+                "sentiment": -0.1,
+                "highlighted_in": "main_text"
+              }
+            ]
+          },
+          {
+            "symbol": "PEER",
+            "name": "Synthetic Peer",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": []
+          }
+        ],
+        "similar": []
+      }
+    ]
+  },
+  "no_description": {
+    "meta": {
+      "found": 1,
+      "returned": 1,
+      "limit": 100,
+      "page": 1
+    },
+    "data": [
+      {
+        "uuid": "fixture-nvda-001",
+        "title": "NVIDIA announces a synthetic fixture update",
+        "description": null,
+        "snippet": "Synthetic provider excerpt only.",
+        "url": "https://wire.example.invalid/news/nvda-1?utm_source=fixture",
+        "language": "en",
+        "published_at": "2026-09-27T12:30:00Z",
+        "source": "wire.example.invalid",
+        "entities": [
+          {
+            "symbol": "NVDA",
+            "name": "NVIDIA Corporation",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": [
+              {
+                "highlight": "<em>NVIDIA</em> announces a synthetic fixture update.",
+                "sentiment": 0.25,
+                "highlighted_in": "title"
+              },
+              {
+                "highlight": "<script>alert(1)</script><b>Synthetic report</b>",
+                "sentiment": -0.1,
+                "highlighted_in": "main_text"
+              }
+            ]
+          },
+          {
+            "symbol": "PEER",
+            "name": "Synthetic Peer",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": []
+          }
+        ],
+        "similar": [
+          {
+            "uuid": "fixture-nvda-002",
+            "url": "https://independent.example.invalid/nvda-2",
+            "title": "Related synthetic report"
+          }
+        ]
+      }
+    ]
+  },
+  "no_snippet": {
+    "meta": {
+      "found": 1,
+      "returned": 1,
+      "limit": 100,
+      "page": 1
+    },
+    "data": [
+      {
+        "uuid": "fixture-nvda-001",
+        "title": "NVIDIA announces a synthetic fixture update",
+        "description": "Example News reports that NVIDIA announced a test update.",
+        "url": "https://wire.example.invalid/news/nvda-1?utm_source=fixture",
+        "language": "en",
+        "published_at": "2026-09-27T12:30:00Z",
+        "source": "wire.example.invalid",
+        "entities": [
+          {
+            "symbol": "NVDA",
+            "name": "NVIDIA Corporation",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": [
+              {
+                "highlight": "<em>NVIDIA</em> announces a synthetic fixture update.",
+                "sentiment": 0.25,
+                "highlighted_in": "title"
+              },
+              {
+                "highlight": "<script>alert(1)</script><b>Synthetic report</b>",
+                "sentiment": -0.1,
+                "highlighted_in": "main_text"
+              }
+            ]
+          },
+          {
+            "symbol": "PEER",
+            "name": "Synthetic Peer",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": []
+          }
+        ],
+        "similar": [
+          {
+            "uuid": "fixture-nvda-002",
+            "url": "https://independent.example.invalid/nvda-2",
+            "title": "Related synthetic report"
+          }
+        ]
+      }
+    ]
+  },
+  "no_time": {
+    "meta": {
+      "found": 1,
+      "returned": 1,
+      "limit": 100,
+      "page": 1
+    },
+    "data": [
+      {
+        "uuid": "fixture-nvda-001",
+        "title": "NVIDIA announces a synthetic fixture update",
+        "description": "Example News reports that NVIDIA announced a test update.",
+        "snippet": "Synthetic provider excerpt only.",
+        "url": "https://wire.example.invalid/news/nvda-1?utm_source=fixture",
+        "language": "en",
+        "published_at": null,
+        "source": "wire.example.invalid",
+        "entities": [
+          {
+            "symbol": "NVDA",
+            "name": "NVIDIA Corporation",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": [
+              {
+                "highlight": "<em>NVIDIA</em> announces a synthetic fixture update.",
+                "sentiment": 0.25,
+                "highlighted_in": "title"
+              },
+              {
+                "highlight": "<script>alert(1)</script><b>Synthetic report</b>",
+                "sentiment": -0.1,
+                "highlighted_in": "main_text"
+              }
+            ]
+          },
+          {
+            "symbol": "PEER",
+            "name": "Synthetic Peer",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": []
+          }
+        ],
+        "similar": [
+          {
+            "uuid": "fixture-nvda-002",
+            "url": "https://independent.example.invalid/nvda-2",
+            "title": "Related synthetic report"
+          }
+        ]
+      }
+    ]
+  },
+  "malformed_time": {
+    "meta": {
+      "found": 1,
+      "returned": 1,
+      "limit": 100,
+      "page": 1
+    },
+    "data": [
+      {
+        "uuid": "fixture-nvda-001",
+        "title": "NVIDIA announces a synthetic fixture update",
+        "description": "Example News reports that NVIDIA announced a test update.",
+        "snippet": "Synthetic provider excerpt only.",
+        "url": "https://wire.example.invalid/news/nvda-1?utm_source=fixture",
+        "language": "en",
+        "published_at": "not-a-date",
+        "source": "wire.example.invalid",
+        "entities": [
+          {
+            "symbol": "NVDA",
+            "name": "NVIDIA Corporation",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": [
+              {
+                "highlight": "<em>NVIDIA</em> announces a synthetic fixture update.",
+                "sentiment": 0.25,
+                "highlighted_in": "title"
+              },
+              {
+                "highlight": "<script>alert(1)</script><b>Synthetic report</b>",
+                "sentiment": -0.1,
+                "highlighted_in": "main_text"
+              }
+            ]
+          },
+          {
+            "symbol": "PEER",
+            "name": "Synthetic Peer",
+            "type": "equity",
+            "industry": "Semiconductors",
+            "exchange": "NASDAQ",
+            "exchange_long": "NASDAQ Stock Market",
+            "country": "us",
+            "match_score": 42.5,
+            "sentiment_score": 0.32,
+            "highlights": []
+          }
+        ],
+        "similar": [
+          {
+            "uuid": "fixture-nvda-002",
+            "url": "https://independent.example.invalid/nvda-2",
+            "title": "Related synthetic report"
+          }
+        ]
+      }
+    ]
+  },
+  "malformed_entities": {
+    "meta": {
+      "found": 1,
+      "returned": 1,
+      "limit": 100,
+      "page": 1
+    },
+    "data": [
+      {
+        "uuid": "fixture-nvda-001",
+        "title": "NVIDIA announces a synthetic fixture update",
+        "description": "Example News reports that NVIDIA announced a test update.",
+        "snippet": "Synthetic provider excerpt only.",
+        "url": "https://wire.example.invalid/news/nvda-1?utm_source=fixture",
+        "language": "en",
+        "published_at": "2026-09-27T12:30:00Z",
+        "source": "wire.example.invalid",
+        "entities": "bad",
+        "similar": [
+          {
+            "uuid": "fixture-nvda-002",
+            "url": "https://independent.example.invalid/nvda-2",
+            "title": "Related synthetic report"
+          }
+        ]
+      }
+    ]
+  },
+  "invalid_payload": {
+    "data": "bad"
+  }
+}

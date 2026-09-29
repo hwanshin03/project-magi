@@ -33,6 +33,10 @@ def plain(value):
 
 
 def main(argv=None,*,provider=None):
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if argv and argv[0]=='news':
+        from .news.cli import main as news_main
+        return news_main(argv[1:],provider=provider)
     parser=argparse.ArgumentParser(prog='python main.py research',description='Explicit official-source research; no recommendations or trades.')
     parser.add_argument('provider',choices=('sec','dart'))
     parser.add_argument('command',choices=('issuer','profile','filings','facts','financials','pack','snapshot'))

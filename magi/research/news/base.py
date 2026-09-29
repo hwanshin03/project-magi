@@ -1,4 +1,4 @@
-"""Normalized future-provider contract. No HTTP implementation is included."""
+"""Provider-neutral queries; live implementations are explicitly injected."""
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol, Tuple, Optional

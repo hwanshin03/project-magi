@@ -25,6 +25,10 @@ def deduplicate(articles):
     for i,a in enumerate(ordered):
         identifiers=[('url',a.url)]
         if a.external_id: identifiers.append(('external',a.provider,a.external_id))
+        # Explicit provider associations group only already-normalized top-level
+        # articles. Members and independent publishers are never discarded.
+        for similar_id in a.metadata.get('similar_external_ids', ()):
+            identifiers.append(('external',a.provider,similar_id))
         wire=a.metadata.get('syndication_origin');story=a.metadata.get('syndication_id')
         if wire and story: identifiers.append(('wire',wire,story))
         for key in identifiers:

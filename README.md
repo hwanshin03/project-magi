@@ -331,3 +331,11 @@ Phase 7D adds provider-neutral news articles, attributed evidence, events, catal
 duplicate/event groups, bounded views and Korean/English presentation. It includes
 synthetic offline fixtures only; no live news provider, agent connection or news
 persistence is enabled. See [news evidence foundation](docs/news-evidence-foundation.md).
+
+### Marketaux live-news adapter (Phase 7D.1)
+
+An explicitly invoked Marketaux adapter resolves provider entities and builds
+bounded, attributed news evidence packs. It has no agent or portfolio integration.
+Implementation tests use synthetic offline fixtures; live verification requires
+separate authorization. See the [Marketaux news guide](docs/marketaux-news.md)
+for commands, token handling, US/Korean mapping, limits, and licensing review.

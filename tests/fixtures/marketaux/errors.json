@@ -1,0 +1,50 @@
+{
+  "400": {
+    "error": {
+      "code": "malformed_parameters",
+      "message": "Synthetic provider failure"
+    }
+  },
+  "401": {
+    "error": {
+      "code": "invalid_api_token",
+      "message": "Synthetic provider failure"
+    }
+  },
+  "402": {
+    "error": {
+      "code": "usage_limit_reached",
+      "message": "Synthetic provider failure"
+    }
+  },
+  "403": {
+    "error": {
+      "code": "endpoint_access_restricted",
+      "message": "Synthetic provider failure"
+    }
+  },
+  "404": {
+    "error": {
+      "code": "resource_not_found",
+      "message": "Synthetic provider failure"
+    }
+  },
+  "429": {
+    "error": {
+      "code": "rate_limit_reached",
+      "message": "Synthetic provider failure"
+    }
+  },
+  "500": {
+    "error": {
+      "code": "internal_server_error",
+      "message": "Synthetic provider failure"
+    }
+  },
+  "503": {
+    "error": {
+      "code": "maintenance",
+      "message": "Synthetic provider failure"
+    }
+  }
+}
