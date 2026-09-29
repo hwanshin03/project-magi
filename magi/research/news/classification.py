@@ -10,11 +10,16 @@ CATEGORIES={EventType.EARNINGS:Category.FINANCIAL,EventType.GUIDANCE:Category.GU
 
 
 def source_for(article,ticker,subject):
+    official = article.metadata.get('official_item_id')
+    provenance = ({k:article.metadata[k] for k in (
+        'official_item_id','official_source','source_family','event_family','item_type',
+        'original_language','translation_item_ids','classification_basis','source_metadata')} if official else {})
     return ResearchSource(article.source_type,article.authority,article.provider,article.title,
         article.publisher,article.retrieved_at,url=article.url,published_at=article.published_at,
         ticker=ticker,company_name=subject,language=article.language,
-        external_id=(article.external_id if article.metadata.get('event_extraction')=='NONE' else article.article_id),metadata={'article_id':article.article_id,
-            'provider_external_id':article.external_id,'authors':article.authors})
+        market=article.metadata.get('market') if official else None,
+        external_id=(official or (article.external_id if article.metadata.get('event_extraction')=='NONE' else article.article_id)),metadata={'article_id':article.article_id,
+            'provider_external_id':article.external_id,'authors':article.authors,**provenance})
 
 
 def normalize(article,ticker,subject,created_at):
@@ -28,7 +33,15 @@ def normalize(article,ticker,subject,created_at):
         raise ValueError('Unclassified reporting cannot declare an event or catalyst')
     provenance=({'provider':a.provider,'classification_source':c.classification_source,
                  'source_field':'description' if a.summary else 'title'} if unclassified else {})
-    e=EvidenceItem(s.source_id,subject,Category.OTHER if unclassified else CATEGORIES.get(c.event_type,Category.CATALYST),statement,
+    official = a.metadata.get('official_item_id')
+    if official:
+        provenance.update({'official_item_id':official,'source_family':a.metadata['source_family'],
+                           'event_family':a.metadata['event_family'],'provider':a.provider,
+                           'classification_source':c.classification_source})
+    category = Category.OTHER if unclassified else CATEGORIES.get(c.event_type,Category.CATALYST)
+    if official:
+        category = Category.FINANCIAL if c.event_type in (EventType.EARNINGS,EventType.DIVIDEND) else Category.OTHER
+    e=EvidenceItem(s.source_id,subject,category,statement,
         a.retrieved_at,ticker=ticker,as_of=c.event_time or a.published_at,
         source_locator=SourceLocator(article_section='summary' if a.summary else 'headline'),
         metadata={'article_id':a.article_id,'content_kind':c.content_kind.value,'claimant':c.claimant,

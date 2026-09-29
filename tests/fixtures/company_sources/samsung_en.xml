@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='utf-8'?>
+<rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
+  <channel>
+    <title>SYNTHETIC offline official-source contract</title>
+    <language>en</language>
+    <item>
+      <title>Synthetic Samsung Electronics quarterly results</title>
+      <link>https://news.samsung.com/global/fixture-earnings</link>
+      <guid>fixture-fixture-earnings</guid>
+      <category>Earnings</category>
+      <pubDate>Mon, 28 Sep 2026 12:00:00 +0000</pubDate>
+      <description>Synthetic source-provided excerpt; no financial impact claimed.</description>
+      <atom:link rel="alternate" hreflang="ko" href="https://news.samsung.com/kr/fixture-earnings" />
+    </item>
+    <item>
+      <title>Synthetic Samsung Electronics newsroom notice</title>
+      <link>https://news.samsung.com/global/fixture-news</link>
+      <guid>fixture-fixture-news</guid>
+      <category>Corporate News</category>
+      <description>Synthetic source-provided excerpt; no financial impact claimed.</description>
+    </item>
+    <item>
+      <title>Synthetic Samsung Electronics dividend</title>
+      <link>https://news.samsung.com/global/fixture-dividend</link>
+      <guid>fixture-fixture-dividend</guid>
+      <category>Dividend</category>
+      <pubDate>Mon, 28 Sep 2026 12:00:00 +0000</pubDate>
+      <description>Synthetic source-provided excerpt; no financial impact claimed.</description>
+    </item>
+    <item>
+      <title>Synthetic Samsung Electronics shareholder notice</title>
+      <link>https://news.samsung.com/global/fixture-shareholders</link>
+      <guid>fixture-fixture-shareholders</guid>
+      <category>Shareholder Notice</category>
+      <pubDate>Mon, 28 Sep 2026 12:00:00 +0000</pubDate>
+      <description>Synthetic source-provided excerpt; no financial impact claimed.</description>
+    </item>
+  </channel>
+</rss>

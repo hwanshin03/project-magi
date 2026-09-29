@@ -339,3 +339,14 @@ bounded, attributed news evidence packs. It has no agent or portfolio integratio
 Implementation tests use synthetic offline fixtures; live verification requires
 separate authorization. See the [Marketaux news guide](docs/marketaux-news.md)
 for commands, token handling, US/Korean mapping, limits, and licensing review.
+
+### Official company IR and newsroom sources (Phase 7D.2)
+
+Offline-tested NVIDIA and Samsung Electronics ingestion preserves first-party provenance,
+internal `NVDA / US` and `005930 / KR` identity, original Korean/English text, explicit
+translation families and conservative event metadata. No agents, investment recommendations
+or database persistence are connected. NVIDIA News RSS and Samsung Korea Newsroom RSS
+are **LIVE VERIFIED**; Samsung Global Newsroom RSS is **LIVE PARTIAL** (49/50 items,
+with one unsafe URL correctly skipped). NVIDIA IR, Samsung IR earnings, and Samsung
+announcement pages are **OFFLINE-IMPLEMENTED / LIVE-UNVERIFIED**, not live supported.
+See [architecture, exact source status, security policy and remaining verification](docs/official-company-sources.md).

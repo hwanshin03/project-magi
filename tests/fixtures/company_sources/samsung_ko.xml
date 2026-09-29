@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='utf-8'?>
+<rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
+  <channel>
+    <title>SYNTHETIC offline official-source contract</title>
+    <language>ko</language>
+    <item>
+      <title>삼성전자 가상 실적 발표</title>
+      <link>https://news.samsung.com/kr/fixture-earnings</link>
+      <guid>fixture-fixture-earnings</guid>
+      <category>실적발표</category>
+      <pubDate>Mon, 28 Sep 2026 12:00:00 +0000</pubDate>
+      <description>Synthetic source-provided excerpt; no financial impact claimed.</description>
+      <atom:link rel="alternate" hreflang="en" href="https://news.samsung.com/global/fixture-earnings" />
+    </item>
+  </channel>
+</rss>

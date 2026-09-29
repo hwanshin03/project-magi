@@ -24,6 +24,11 @@ ENUM_TYPES.update({cls.__name__:cls for cls in (nm.EventType,nm.CatalystType,nm.
     nm.TimeHorizon,nm.VerificationStatus,nm.ContentKind,nm.Relevance,nm.Freshness,nm.Sentiment,nm.NewsWarning)})
 ROOT_TYPES += _NEWS_MODELS
 
+from .company_sources.models import OfficialCompanyItem, OfficialItemType
+MODEL_TYPES['OfficialCompanyItem'] = OfficialCompanyItem
+ENUM_TYPES['OfficialItemType'] = OfficialItemType
+ROOT_TYPES += (OfficialCompanyItem,)
+
 
 def encode(value):
     if isinstance(value,Enum): return {'$enum':type(value).__name__,'value':value.value}

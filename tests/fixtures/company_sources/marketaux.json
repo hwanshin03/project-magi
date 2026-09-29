@@ -1,0 +1,21 @@
+{
+  "note": "SYNTHETIC normalization fixture, not a provider payload or live article",
+  "articles": [
+    {
+      "ticker": "NVDA",
+      "title": "Synthetic independent coverage of NVIDIA results",
+      "url": "https://example.org/fixture-nvidia",
+      "provider": "marketaux",
+      "publisher": "Synthetic Independent Publisher",
+      "event_link": "explicit test annotation only"
+    },
+    {
+      "ticker": "005930",
+      "title": "Synthetic independent coverage of Samsung results",
+      "url": "https://example.org/fixture-samsung",
+      "provider": "marketaux",
+      "publisher": "Synthetic Independent Publisher",
+      "event_link": "explicit test annotation only"
+    }
+  ]
+}

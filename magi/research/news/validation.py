@@ -22,7 +22,14 @@ def quality(pack):
     if Freshness.STALE in times: warnings.add(W.STALE_NEWS)
     if not any(s.authority==Authority.PRIMARY for s in pack.sources): warnings.add(W.NO_PRIMARY_SOURCE)
     publishers={a.publisher for a in pack.articles}
-    if len(publishers)<2: warnings.add(W.LOW_SOURCE_DIVERSITY)
+    # Additive first-party views expose family counts separately from raw outlets.
+    # Neither count is a materiality score or establishes independent corroboration.
+    family_coverage={}
+    if any(a.metadata.get('official_item_id') for a in pack.articles):
+        from .provenance import source_family
+        families={source_family(a) for a in pack.articles}
+        family_coverage={'source_family_count':len(families),'source_families':tuple(sorted(families))}
+    if family_coverage.get('source_family_count',len(publishers))<2: warnings.add(W.LOW_SOURCE_DIVERSITY)
     if any(c.status==V.DISPUTED for c in pack.event_clusters): warnings.add(W.CONFLICTING_NEWS)
     if any(c.status in (V.RUMOR,V.UNCONFIRMED) for c in pack.event_clusters): warnings.add(W.UNCONFIRMED_EVENT)
     if pack.selection_omissions: warnings.add(W.BOUNDED_SELECTION)
@@ -31,4 +38,4 @@ def quality(pack):
         'event_types':tuple(sorted({e.event_type.value for e in pack.events})),
         'has_primary_source':any(s.authority==Authority.PRIMARY for s in pack.sources),
         'has_recent_news':any(f in (Freshness.BREAKING,Freshness.RECENT) for f in times),
-        'omitted_article_count':len(pack.selection_omissions)}
+        'omitted_article_count':len(pack.selection_omissions),**family_coverage}

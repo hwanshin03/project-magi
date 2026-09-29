@@ -1,0 +1,54 @@
+<?xml version='1.0' encoding='utf-8'?>
+<rss version="2.0">
+  <channel>
+    <title>SYNTHETIC offline official-source contract</title>
+    <language>en</language>
+    <item>
+      <title>Synthetic NVIDIA press notice</title>
+      <link>https://nvidianews.nvidia.com/releases/fixture-press</link>
+      <guid>fixture-fixture-press</guid>
+      <category>Press Release</category>
+      <pubDate>Mon, 28 Sep 2026 12:00:00 +0000</pubDate>
+      <description>Synthetic source-provided excerpt; no financial impact claimed.</description>
+    </item>
+    <item>
+      <title>Synthetic NVIDIA quarterly results</title>
+      <link>https://nvidianews.nvidia.com/releases/fixture-earnings</link>
+      <guid>fixture-fixture-earnings</guid>
+      <category>Earnings</category>
+      <pubDate>Mon, 28 Sep 2026 12:00:00 +0000</pubDate>
+      <description>Synthetic source-provided excerpt; no financial impact claimed.</description>
+    </item>
+    <item>
+      <title>Synthetic NVIDIA platform announcement</title>
+      <link>https://nvidianews.nvidia.com/releases/fixture-product</link>
+      <guid>fixture-fixture-product</guid>
+      <category>Product Announcement</category>
+      <pubDate>Mon, 28 Sep 2026 12:00:00 +0000</pubDate>
+      <description>Synthetic source-provided excerpt; no financial impact claimed.</description>
+    </item>
+    <item>
+      <title>Synthetic NVIDIA undated notice</title>
+      <link>https://nvidianews.nvidia.com/releases/fixture-undated</link>
+      <guid>fixture-fixture-undated</guid>
+      <category>Press Release</category>
+      <description>Synthetic source-provided excerpt; no financial impact claimed.</description>
+    </item>
+    <item>
+      <title>Synthetic NVIDIA press notice</title>
+      <link>https://nvidianews.nvidia.com/releases/fixture-press</link>
+      <guid>fixture-fixture-press</guid>
+      <category>Press Release</category>
+      <pubDate>Mon, 28 Sep 2026 12:00:00 +0000</pubDate>
+      <description>Synthetic source-provided excerpt; no financial impact claimed.</description>
+    </item>
+    <item>
+      <title>Synthetic SEC filing</title>
+      <link>https://www.sec.gov/Archives/fixture</link>
+      <guid>fixture-fixture</guid>
+      <category>SEC Filing</category>
+      <pubDate>Mon, 28 Sep 2026 12:00:00 +0000</pubDate>
+      <description>Synthetic source-provided excerpt; no financial impact claimed.</description>
+    </item>
+  </channel>
+</rss>
