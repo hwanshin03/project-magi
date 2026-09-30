@@ -29,6 +29,13 @@ MODEL_TYPES['OfficialCompanyItem'] = OfficialCompanyItem
 ENUM_TYPES['OfficialItemType'] = OfficialItemType
 ROOT_TYPES += (OfficialCompanyItem,)
 
+from .regulatory.models import (RegulatoryItem, RegulatoryEvent, RegulatoryRelationship,
+                                RegulatoryBundle, RegulatoryType, RegulatoryStatus)
+_REGULATORY_MODELS = (RegulatoryItem, RegulatoryEvent, RegulatoryRelationship, RegulatoryBundle)
+MODEL_TYPES.update({cls.__name__:cls for cls in _REGULATORY_MODELS})
+ENUM_TYPES.update({cls.__name__:cls for cls in (RegulatoryType, RegulatoryStatus)})
+ROOT_TYPES += _REGULATORY_MODELS
+
 
 def encode(value):
     if isinstance(value,Enum): return {'$enum':type(value).__name__,'value':value.value}

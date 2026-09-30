@@ -1,0 +1,180 @@
+{
+  "fixture_notice": "SYNTHETIC, not a live provider payload",
+  "results": [
+    {
+      "document_number": "2026-10001",
+      "title": "Synthetic proposal to amend export control rules",
+      "abstract": "Synthetic official summary; no company impact asserted.",
+      "html_url": "https://www.federalregister.gov/documents/2026/09/20/2026-10001/synthetic-rule",
+      "publication_date": "2026-09-20",
+      "type": "Proposed Rule",
+      "agencies": [
+        {
+          "slug": "industry-and-security-bureau",
+          "name": "Synthetic agency label"
+        }
+      ],
+      "regulation_id_numbers": [
+        "0694-AA01"
+      ],
+      "cfr_references": [
+        {
+          "title": 15,
+          "part": 744
+        }
+      ]
+    },
+    {
+      "document_number": "2026-10002",
+      "title": "Synthetic final export control rule",
+      "abstract": "Synthetic official summary; no company impact asserted.",
+      "html_url": "https://www.federalregister.gov/documents/2026/09/20/2026-10002/synthetic-rule",
+      "publication_date": "2026-09-20",
+      "type": "Rule",
+      "agencies": [
+        {
+          "slug": "industry-and-security-bureau",
+          "name": "Synthetic agency label"
+        }
+      ],
+      "effective_on": "2026-10-15",
+      "regulation_id_numbers": [
+        "0694-AA01"
+      ],
+      "cfr_references": [
+        {
+          "title": 15,
+          "part": 744
+        }
+      ]
+    },
+    {
+      "document_number": "2026-10003",
+      "title": "Synthetic regulatory publication 2026-10003",
+      "abstract": "Synthetic official summary; no company impact asserted.",
+      "html_url": "https://www.federalregister.gov/documents/2026/09/20/2026-10003/synthetic-rule",
+      "publication_date": "2026-09-20",
+      "type": "Rule",
+      "agencies": [
+        {
+          "slug": "industry-and-security-bureau",
+          "name": "Synthetic agency label"
+        }
+      ],
+      "correction_of": "2026-10002",
+      "regulation_id_numbers": [
+        "0694-AA01"
+      ]
+    },
+    {
+      "document_number": "2026-10004",
+      "title": "Synthetic regulatory publication 2026-10004",
+      "abstract": "Synthetic official summary; no company impact asserted.",
+      "html_url": "https://www.federalregister.gov/documents/2026/09/20/2026-10004/synthetic-rule",
+      "publication_date": "2026-09-20",
+      "type": "Rule",
+      "agencies": [
+        {
+          "slug": "industry-and-security-bureau",
+          "name": "Synthetic agency label"
+        }
+      ],
+      "amends": "2026-10002"
+    },
+    {
+      "document_number": "2026-10005",
+      "title": "Synthetic regulatory publication 2026-10005",
+      "abstract": "Synthetic official summary; no company impact asserted.",
+      "html_url": "https://www.federalregister.gov/documents/2026/09/20/2026-10005/synthetic-rule",
+      "publication_date": "2026-09-20",
+      "type": "Notice",
+      "agencies": [
+        {
+          "slug": "industry-and-security-bureau",
+          "name": "Synthetic agency label"
+        }
+      ],
+      "action": "Withdrawal."
+    },
+    {
+      "document_number": "2026-10006",
+      "title": "Synthetic regulatory publication 2026-10006",
+      "abstract": "Synthetic official summary; no company impact asserted.",
+      "html_url": "https://www.federalregister.gov/documents/2026/09/20/2026-10006/synthetic-rule",
+      "publication_date": "2026-09-20",
+      "type": "Notice",
+      "agencies": [
+        {
+          "slug": "industry-and-security-bureau",
+          "name": "Synthetic agency label"
+        }
+      ],
+      "action": "Superseded.",
+      "supersedes": "2026-10002"
+    },
+    {
+      "document_number": "2026-10001",
+      "title": "Synthetic proposal to amend export control rules",
+      "abstract": "Synthetic official summary; no company impact asserted.",
+      "html_url": "https://www.federalregister.gov/documents/2026/09/20/2026-10001/synthetic-rule",
+      "publication_date": "2026-09-20",
+      "type": "Proposed Rule",
+      "agencies": [
+        {
+          "slug": "industry-and-security-bureau",
+          "name": "Synthetic agency label"
+        }
+      ],
+      "regulation_id_numbers": [
+        "0694-AA01"
+      ],
+      "cfr_references": [
+        {
+          "title": 15,
+          "part": 744
+        }
+      ]
+    },
+    {
+      "document_number": "2026-10002",
+      "title": "Synthetic final export control rule",
+      "abstract": "Synthetic corrected official metadata excerpt.",
+      "html_url": "https://www.federalregister.gov/documents/2026/09/20/2026-10002/synthetic-rule",
+      "publication_date": "2026-09-20",
+      "type": "Rule",
+      "agencies": [
+        {
+          "slug": "industry-and-security-bureau",
+          "name": "Synthetic agency label"
+        }
+      ],
+      "effective_on": "2026-10-15",
+      "regulation_id_numbers": [
+        "0694-AA01"
+      ],
+      "cfr_references": [
+        {
+          "title": 15,
+          "part": 744
+        }
+      ]
+    },
+    {
+      "title": "Synthetic malformed record"
+    },
+    {
+      "document_number": "2026-10007",
+      "title": "Synthetic regulatory publication 2026-10007",
+      "abstract": "Synthetic official summary; no company impact asserted.",
+      "html_url": "https://127.0.0.1/private",
+      "publication_date": "2026-09-20",
+      "type": "Rule",
+      "agencies": [
+        {
+          "slug": "industry-and-security-bureau",
+          "name": "Synthetic agency label"
+        }
+      ]
+    }
+  ]
+}

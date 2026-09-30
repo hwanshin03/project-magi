@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='utf-8'?>
+<rss version="2.0">
+  <channel>
+    <title>가상 금융위원회 RSS 계약</title>
+    <item>
+      <title>가상 금융규제 입법예고</title>
+      <description>가상 공식 요약입니다. 기업 영향은 추정하지 않습니다.</description>
+      <link>https://www.fsc.go.kr/no010101/10001</link>
+      <pubDate>Mon, 28 Sep 2026 10:00:00 +0900</pubDate>
+      <category>입법예고</category>
+      <reference>FSC-2026-001</reference>
+      <legalReference>가상 금융법 제1조</legalReference>
+    </item>
+    <item>
+      <title>가상 금융정책 발표</title>
+      <description>명시된 시행일만 보존합니다.</description>
+      <link>https://www.fsc.go.kr/no010101/10002</link>
+      <pubDate>2026-09-28</pubDate>
+      <effectiveDate>2026-10-15</effectiveDate>
+      <regulatoryType>INDUSTRIAL_POLICY</regulatoryType>
+      <regulatoryStatus>FINAL</regulatoryStatus>
+      <category>보도자료</category>
+      <reference>FSC-2026-002</reference>
+    </item>
+    <item>
+      <title>가상 메타데이터 없는 공지</title>
+      <link>https://www.fsc.go.kr/no010101/10003</link>
+    </item>
+    <item>
+      <title>가상 잘못된 날짜</title>
+      <link>https://www.fsc.go.kr/no010101/10004</link>
+      <pubDate>not-a-date</pubDate>
+    </item>
+    <item>
+      <title>가상 위험 URL</title>
+      <link>file:///private/fixture</link>
+    </item>
+  </channel>
+</rss>

@@ -350,3 +350,13 @@ are **LIVE VERIFIED**; Samsung Global Newsroom RSS is **LIVE PARTIAL** (49/50 it
 with one unsafe URL correctly skipped). NVIDIA IR, Samsung IR earnings, and Samsung
 announcement pages are **OFFLINE-IMPLEMENTED / LIVE-UNVERIFIED**, not live supported.
 See [architecture, exact source status, security policy and remaining verification](docs/official-company-sources.md).
+
+### Government and regulatory sources (Phase 7D.3)
+
+Government research ingestion covers BIS and SEC regulatory publications through
+Federal Register JSON and Korean FSC RSS. Immutable records preserve legal status,
+publication/effective dates, attributed evidence and explicit version relationships.
+Government publications are one source family, without analytical weighting or agent
+integration. Controlled live verification passed: BIS **20/20**, SEC Regulatory
+**20/20**, and FSC **10/10**, including BIS C1 identifiers and FSC Dublin Core dates.
+See [regulatory source architecture and verification limits](docs/regulatory-research-sources.md).

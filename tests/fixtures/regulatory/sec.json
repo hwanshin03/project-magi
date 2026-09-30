@@ -1,0 +1,69 @@
+{
+  "fixture_notice": "SYNTHETIC, not live SEC/EDGAR data",
+  "results": [
+    {
+      "document_number": "2026-20001",
+      "title": "Synthetic regulatory publication 2026-20001",
+      "abstract": "Synthetic official summary; no company impact asserted.",
+      "html_url": "https://www.federalregister.gov/documents/2026/09/20/2026-20001/synthetic-rule",
+      "publication_date": "2026-09-20",
+      "type": "Proposed Rule",
+      "agencies": [
+        {
+          "slug": "securities-and-exchange-commission",
+          "name": "Synthetic agency label"
+        }
+      ],
+      "regulation_id_numbers": [
+        "3235-ZZ01"
+      ]
+    },
+    {
+      "document_number": "2026-20002",
+      "title": "Synthetic regulatory publication 2026-20002",
+      "abstract": "Synthetic official summary; no company impact asserted.",
+      "html_url": "https://www.federalregister.gov/documents/2026/09/20/2026-20002/synthetic-rule",
+      "publication_date": "2026-09-20",
+      "type": "Rule",
+      "agencies": [
+        {
+          "slug": "securities-and-exchange-commission",
+          "name": "Synthetic agency label"
+        }
+      ],
+      "regulation_id_numbers": [
+        "3235-ZZ01"
+      ],
+      "effective_on": "2026-11-01"
+    },
+    {
+      "document_number": "2026-20003",
+      "title": "Synthetic regulatory publication 2026-20003",
+      "abstract": "Synthetic official summary; no company impact asserted.",
+      "html_url": "https://www.federalregister.gov/documents/2026/09/20/2026-20003/synthetic-rule",
+      "publication_date": "2026-09-20",
+      "type": "Notice",
+      "agencies": [
+        {
+          "slug": "securities-and-exchange-commission",
+          "name": "Synthetic agency label"
+        }
+      ],
+      "action": "Enforcement action."
+    },
+    {
+      "document_number": "2026-20004",
+      "title": "Synthetic regulatory publication 2026-20004",
+      "abstract": null,
+      "html_url": "https://www.federalregister.gov/documents/2026/09/20/2026-20004/synthetic-rule",
+      "publication_date": null,
+      "type": "Unknown publication",
+      "agencies": [
+        {
+          "slug": "securities-and-exchange-commission",
+          "name": "Synthetic agency label"
+        }
+      ]
+    }
+  ]
+}
