@@ -37,6 +37,17 @@ ENUM_TYPES.update({cls.__name__:cls for cls in (RegulatoryType, RegulatoryStatus
 ROOT_TYPES += _REGULATORY_MODELS
 
 
+# Additive Phase 7E.1 reference foundation; no selector or agent invocation.
+from .balancing import models as bm
+from .balancing.inputs import TemporalObservation
+_BALANCING_MODELS = (bm.InstrumentIdentity, bm.EntityIdentity, bm.TargetIdentity,
+    bm.SelectionRequest, bm.QualifiedReference, bm.InputSnapshot,
+    bm.InputAvailability, bm.LineageReference, bm.EvidenceUniverse, TemporalObservation)
+MODEL_TYPES.update({cls.__name__: cls for cls in _BALANCING_MODELS})
+ENUM_TYPES.update({cls.__name__: cls for cls in (bm.InputFamily, bm.Availability, bm.LineageKind)})
+ROOT_TYPES += _BALANCING_MODELS
+
+
 def encode(value):
     if isinstance(value,Enum): return {'$enum':type(value).__name__,'value':value.value}
     if isinstance(value,m.FrozenMetadata): return {'$map':[[k,encode(v)] for k,v in value.entries]}
