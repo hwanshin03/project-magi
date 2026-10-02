@@ -52,6 +52,13 @@ _GROUPING_MODELS = (GroupAnchor, AnalyticalGroup, GroupedEvidence)
 MODEL_TYPES.update({cls.__name__: cls for cls in _GROUPING_MODELS})
 ROOT_TYPES += _GROUPING_MODELS
 
+from .balancing import assessment as am
+_ASSESSMENT_MODELS = (am.TargetExposure, am.AssessmentPolicy, am.AssessmentBasis,
+    am.ReferenceFitness, am.GroupAssessment, am.AssessmentSet)
+MODEL_TYPES.update({cls.__name__: cls for cls in _ASSESSMENT_MODELS})
+ENUM_TYPES.update({cls.__name__: cls for cls in (am.RelevanceLevel, am.AttentionLevel, am.TemporalFitness)})
+ROOT_TYPES += _ASSESSMENT_MODELS
+
 
 def encode(value):
     if isinstance(value,Enum): return {'$enum':type(value).__name__,'value':value.value}
