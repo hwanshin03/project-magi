@@ -47,6 +47,11 @@ MODEL_TYPES.update({cls.__name__: cls for cls in _BALANCING_MODELS})
 ENUM_TYPES.update({cls.__name__: cls for cls in (bm.InputFamily, bm.Availability, bm.LineageKind)})
 ROOT_TYPES += _BALANCING_MODELS
 
+from .balancing.grouping import GroupAnchor, AnalyticalGroup, GroupedEvidence
+_GROUPING_MODELS = (GroupAnchor, AnalyticalGroup, GroupedEvidence)
+MODEL_TYPES.update({cls.__name__: cls for cls in _GROUPING_MODELS})
+ROOT_TYPES += _GROUPING_MODELS
+
 
 def encode(value):
     if isinstance(value,Enum): return {'$enum':type(value).__name__,'value':value.value}
