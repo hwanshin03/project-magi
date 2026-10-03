@@ -60,6 +60,14 @@ ENUM_TYPES.update({cls.__name__: cls for cls in (am.RelevanceLevel, am.Attention
 ROOT_TYPES += _ASSESSMENT_MODELS
 
 
+from .balancing import selection as bs
+_SELECTION_MODELS = (bs.EvidenceSelectionPolicy, bs.BudgetUsage, bs.SelectedGroup,
+    bs.OmittedGroup, bs.AgentEvidenceView, bs.EvidenceSelection)
+MODEL_TYPES.update({cls.__name__: cls for cls in _SELECTION_MODELS})
+ENUM_TYPES['OmissionReason'] = bs.OmissionReason
+ROOT_TYPES += _SELECTION_MODELS
+
+
 def encode(value):
     if isinstance(value,Enum): return {'$enum':type(value).__name__,'value':value.value}
     if isinstance(value,m.FrozenMetadata): return {'$map':[[k,encode(v)] for k,v in value.entries]}
