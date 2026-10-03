@@ -31,9 +31,10 @@ class Melchior:
         ) as f:
             self.persona = f.read()
     
-    def think(self, question):
+    def think(self, question, *, research_selection=None):
 
-        prompt, instructions = agent_request(self.persona, question, self.historical_context)
+        prompt, instructions = agent_request(self.persona, question, self.historical_context,
+                                             research_selection=research_selection, agent_name=self.name)
 
         result = call_provider(self.provider, lambda: self.client.responses.create(
             model=self.model,

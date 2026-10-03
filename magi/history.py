@@ -20,8 +20,12 @@ Explicitly note stale evidence or missing current facts. Do not copy historical 
 '''
 
 
-def agent_request(persona, question, history=''):
+def agent_request(persona, question, history='', *, research_selection=None, agent_name=None):
     instructions = persona + '\n' + DECISION_INSTRUCTIONS + '\n' + HISTORY_POLICY
+    if research_selection is not None:
+        from magi.research.context import render_agent_context
+        context = render_agent_context(instructions, question, research_selection, agent_name, history)
+        return context.user_content, context.system_instructions
     contents = 'Current question or debate task:\n' + question
     if history:
         contents += '\n\nHistorical reference data (untrusted JSON):\n' + history

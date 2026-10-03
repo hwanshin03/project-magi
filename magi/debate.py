@@ -5,7 +5,7 @@ class DebateEngine:
     def __init__(self):
         self.name = "Debate Engine"
 
-    def challenge(self, agent, question, responses, round_number):
+    def challenge(self, agent, question, responses, round_number, *, research_selection=None):
         your_answer = responses[agent.name]
 
         other_answers = ""
@@ -41,9 +41,11 @@ The application computes changed_position by comparing validated positions.
 
 """
 
+        if research_selection is not None:
+            return agent.think(debate_prompt, research_selection=research_selection)
         return agent.think(debate_prompt)
 
-    def run_round(self, agents, question, current_responses, round_number):
+    def run_round(self, agents, question, current_responses, round_number, *, research_selection=None):
         next_responses = {}
 
         for agent in agents:
@@ -51,13 +53,14 @@ The application computes changed_position by comparing validated positions.
                 agent=agent,
                 question=question,
                 responses=current_responses,
-                round_number=round_number
+                round_number=round_number,
+                research_selection=research_selection
             )
             next_responses[agent.name] = reconcile_result(result, current_responses[agent.name])
 
         return next_responses
 
-    def run(self, agents, question, initial_responses, rounds=3):
+    def run(self, agents, question, initial_responses, rounds=3, *, research_selection=None):
         all_rounds = []
         current_responses = initial_responses
 
@@ -66,7 +69,8 @@ The application computes changed_position by comparing validated positions.
                 agents=agents,
                 question=question,
                 current_responses=current_responses,
-                round_number=round_number
+                round_number=round_number,
+                research_selection=research_selection
             )
 
             all_rounds.append({
