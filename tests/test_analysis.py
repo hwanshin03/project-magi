@@ -215,7 +215,7 @@ class AnalysisTests(unittest.TestCase):
                 self.assertNotIn('FUTURE_CONTENT',body)
             self.assertEqual(r.vote,baseline.vote)
             self.assertEqual(r.selection.common_core,baseline.selection.common_core)
-            self.assertIn('TEMPORAL_EXCLUSION',{o.reason.value for o in r.selection.omissions})
+            self.assertIn('AFTER_AS_OF',{reason for p in r.sec_projections for _,reason in p.audit})
 
     def test_explicit_clock_never_replaced(self):
         with patch('time.time',side_effect=AssertionError('No runtime clock')):

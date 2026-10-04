@@ -1,4 +1,5 @@
 """Deterministic event contexts over references, without inference or source voting."""
+from magi.research.validation import operation
 from dataclasses import dataclass, field
 from datetime import timezone
 import re
@@ -6,7 +7,7 @@ from ..models import ResearchSource, SourceType
 from ..news.models import NewsArticle
 from ..regulatory.models import RegulatoryItem
 from .models import EvidenceUniverse, QualifiedReference, LineageKind, label, sequence, finish, fingerprint
-from .inputs import members, reference, validate_container
+from .inputs import validate_container
 
 
 @dataclass(frozen=True)
@@ -17,6 +18,7 @@ class GroupAnchor:
     scope: str
     compatibility: tuple = ()
 
+    @operation
     def __post_init__(self):
         for value in (self.namespace, self.key, self.scope): label(value, 1000)
         values = sequence(self.compatibility, str)
@@ -31,6 +33,7 @@ class AnalyticalGroup:
     members: tuple
     group_id: str = ''
 
+    @operation
     def __post_init__(self):
         if self.anchor is not None and type(self.anchor) is not GroupAnchor:
             raise ValueError('Invalid group anchor')
@@ -48,6 +51,7 @@ class GroupedEvidence:
     unassigned: tuple = field(init=False)
     grouping_id: str = ''
 
+    @operation
     def __post_init__(self):
         if type(self.universe) is not EvidenceUniverse: raise ValueError('Invalid evidence universe')
         validate_container(self.universe)
@@ -91,7 +95,7 @@ def _anchor(obj, scope):
 
 
 def _group(universe):
-    objects = {reference(s, obj): (obj, s.container) for s in universe.inputs for obj in members(s.container)}
+    objects = {ref: (obj, s.container) for s in universe.inputs for obj, ref in s._reference_pairs}
     # Only document/report roots originate contexts. Normalized sources, events,
     # metrics and catalysts inherit context through *generated* derivation links.
     generated = [x for x in universe.lineage if x.asserted_by == 'structured-input-v1']

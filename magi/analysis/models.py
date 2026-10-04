@@ -1,4 +1,5 @@
 """Immutable orchestration contracts, reusing existing identities and decisions."""
+from magi.research.validation import operation
 from dataclasses import dataclass, field, fields, replace
 from datetime import datetime
 import json
@@ -50,6 +51,7 @@ class AnalysisRequest:
     version: str = '7F-v1'
     request_id: str = ''
 
+    @operation
     def __post_init__(self):
         from magi.research.regulatory.catalog import source_spec
         for name in ('requested','required','languages','regulatory_sources'):
@@ -91,6 +93,7 @@ class ResearchInput:
     error_codes: tuple = ()
     omissions: tuple = ()
 
+    @operation
     def __post_init__(self):
         if self.channel not in CHANNELS: raise ValueError('Unknown collection channel')
         if not isinstance(self.containers,(tuple,list)): raise ValueError('Invalid normalized inputs')
@@ -127,8 +130,10 @@ class AnalysisResult:
     explanation: str | None = None
     explanation_error: str | None = None
     artifact_id: str = ''
+    sec_projections: tuple = ()
     vote: object = field(init=False)
 
+    @operation
     def __post_init__(self):
         if type(self.request) is not AnalysisRequest or replace(self.request)!=self.request:
             raise ValueError('Invalid analysis request')
@@ -151,8 +156,20 @@ class AnalysisResult:
         if self.explanation is not None: safe_text(self.explanation)
         if self.explanation_error not in (None,'EXPLANATION_UNAVAILABLE'): raise ValueError('Invalid explanation failure')
         if self.explanation is not None and self.explanation_error is not None: raise ValueError('Conflicting explanation state')
-        checked_id(self,'artifact_id','AN',fingerprint((self.request.request_id,self.selection.selection_id,
-            tuple(str(r) for r in self.agent_results),self.explanation,self.explanation_error)))
+        from magi.research.sec_projection import SECAnalyticalProjection, SECProjectionPolicy
+        if not isinstance(self.sec_projections,tuple) or any(type(p) is not SECAnalyticalProjection for p in self.sec_projections):
+            raise ValueError('Invalid SEC projections')
+        for p in self.sec_projections:
+            validate_container(p)
+            expected = SECProjectionPolicy(self.request.as_of,self.request.selection_request.scope,
+                self.request.report,self.request.year,published_since=self.request.assessment_policy.published_since,
+                currency=self.request.currency)
+            if p.policy != expected or not any(s.container == p.analytical_pack for s in self.universe.inputs):
+                raise ValueError('SEC projection/request mismatch')
+        payload = (self.request.request_id,self.selection.selection_id,
+            tuple(str(r) for r in self.agent_results),self.explanation,self.explanation_error)
+        if self.sec_projections: payload += (tuple(p.projection_id for p in self.sec_projections),)
+        checked_id(self,'artifact_id','AN',fingerprint(payload))
 
     @property
     def universe(self): return self.selection.assessment.grouped.universe
@@ -165,27 +182,33 @@ class AnalysisResult:
             (not self.selection.common_core,'NO_SELECTED_EVIDENCE')) if condition)
 
 
+@operation
 def dumps(result):
     """Explicit lossless export only; never writes a file or production database."""
     if type(result) is not AnalysisResult: raise ValueError('Expected analysis result')
     return json.dumps({'schema':'7F-v1','request':request_data(result.request),'selection':encode(result.selection),
         'agent_results':[json.loads(str(r)) for r in result.agent_results],
-        'explanation':result.explanation,'explanation_error':result.explanation_error,'artifact_id':result.artifact_id},
+        'explanation':result.explanation,'explanation_error':result.explanation_error,'artifact_id':result.artifact_id,
+        **({'sec_projections':encode(result.sec_projections)} if result.sec_projections else {})},
         sort_keys=True,ensure_ascii=False,allow_nan=False,separators=(',',':'))
 
 
+@operation
 def loads(value):
     from magi.research.serialization import _pairs
     try:
         raw=json.loads(value,object_pairs_hook=_pairs)
+        if not isinstance(raw,dict): raise ValueError('Invalid analysis serialization')
+        projection_data=raw.pop('sec_projections',{'$tuple':[]})
         if set(raw)!={'schema','request','selection','agent_results','explanation','explanation_error','artifact_id'} or raw['schema']!='7F-v1':
             raise ValueError('Invalid analysis serialization')
+        projections=decode(projection_data)
         request=AnalysisRequest(**{k:decode(v) for k,v in raw['request'].items()})
         results=[]
         for row in raw['agent_results']:
             row['position']=Position(row['position']) if row['position'] is not None else None
             row['availability']=AgentAvailability(row['availability'])
             results.append(AgentResult(**row))
-        return AnalysisResult(request,decode(raw['selection']),tuple(results),raw['explanation'],raw['explanation_error'],raw['artifact_id'])
+        return AnalysisResult(request,decode(raw['selection']),tuple(results),raw['explanation'],raw['explanation_error'],raw['artifact_id'],projections)
     except (KeyError,TypeError,OverflowError,RecursionError):
         raise ValueError('Invalid analysis serialization') from None

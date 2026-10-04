@@ -6,6 +6,7 @@ import os
 import re
 import sqlite3
 from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -32,8 +33,11 @@ def timestamp(value=None):
     return value.astimezone(timezone.utc).isoformat(timespec='microseconds')
 
 
-def check_sensitive(value):
-    """Reject, rather than silently alter, records containing known secrets."""
+_secret_context = ContextVar('magi_secret_context', default=None)
+
+
+def _capture_secrets():
+    """Capture immutable known-secret values; never retain them across operations."""
     try:
         secrets = [v for k, v in os.environ.items() if v and re.search(
             r'API_KEY|CLIENT_ID|TOKEN|SECRET|PASSWORD|CREDENTIAL|PRIVATE_KEY|AUTH', k, re.I)]
@@ -43,6 +47,28 @@ def check_sensitive(value):
             secrets.extend(v for k, v in values.items() if v and k != 'SEC_USER_AGENT')
     except (OSError, ValueError):
         raise StorageError('Cannot safely validate persistence content.') from None
+
+    return tuple(secrets)
+
+
+@contextmanager
+def sensitive_operation():
+    """Nested validation shares one snapshot; the next operation captures afresh."""
+    if _secret_context.get() is not None:
+        yield
+        return
+    token = _secret_context.set(_capture_secrets())
+    try:
+        yield
+    finally:
+        _secret_context.reset(token)
+
+
+def check_sensitive(value):
+    """Reject, rather than silently alter, records containing known secrets."""
+    secrets = _secret_context.get()
+    if secrets is None:
+        secrets = _capture_secrets()
 
     def strings(item):
         if isinstance(item, str):

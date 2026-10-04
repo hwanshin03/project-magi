@@ -1,7 +1,9 @@
 """Immutable references to existing snapshots, never a second evidence store."""
+from magi.research.validation import operation
 from dataclasses import dataclass, field, fields
 from datetime import datetime
 from enum import Enum
+from types import MappingProxyType
 import re
 from ..models import identity, instant
 from ..security import text
@@ -47,6 +49,7 @@ def strings(values):
     return tuple(sorted(set(values)))
 
 
+@operation
 def fingerprint(value):
     """Use the existing canonical tagged encoder and SHA-256 identity utility.
 
@@ -79,6 +82,7 @@ class InstrumentIdentity:
     market: str
     symbol: str
 
+    @operation
     def __post_init__(self):
         for value in (self.market, self.symbol):
             label(value, 32)
@@ -92,6 +96,7 @@ class EntityIdentity:
     identifier: str
     display_name: str | None = None
 
+    @operation
     def __post_init__(self):
         label(self.namespace); label(self.identifier)
         if self.display_name is not None: label(self.display_name)
@@ -104,6 +109,7 @@ class TargetIdentity:
     mapping_asserted_by: str | None = None
     mapping_reference: str | None = None
 
+    @operation
     def __post_init__(self):
         if self.instrument is None and self.entity is None: raise ValueError('Target identity required')
         if self.instrument is not None and type(self.instrument) is not InstrumentIdentity: raise ValueError('Invalid instrument')
@@ -124,6 +130,7 @@ class SelectionRequest:
     input_manifest_id: str | None = None
     request_id: str = ''
 
+    @operation
     def __post_init__(self):
         if type(self.target) is not TargetIdentity: raise ValueError('Invalid target')
         instant(self.as_of); label(self.scope, 4000); label(self.policy_version)
@@ -142,6 +149,7 @@ class QualifiedReference:
     content_fingerprint: str
     reference_id: str = ''
 
+    @operation
     def __post_init__(self):
         for value, prefix in ((self.snapshot_id, 'BI'), (self.content_fingerprint, 'BF')):
             label(value)
@@ -158,6 +166,7 @@ class InputSnapshot:
     snapshot_id: str = ''
     content_fingerprint: str = field(init=False)
 
+    @operation
     def __post_init__(self):
         from .inputs import family_for, validate_container
         if type(self.family) is not InputFamily or self.family != family_for(self.container):
@@ -165,6 +174,10 @@ class InputSnapshot:
         validate_container(self.container)
         object.__setattr__(self, 'content_fingerprint', fingerprint(self.container))
         finish(self, 'snapshot_id', 'BI')
+        from .inputs import members, reference
+        pairs = tuple((obj, reference(self, obj)) for obj in members(self.container))
+        # Derived runtime index is deliberately not a dataclass/serialized field.
+        object.__setattr__(self, '_reference_pairs', pairs)
 
 
 @dataclass(frozen=True)
@@ -176,6 +189,7 @@ class InputAvailability:
     omissions: tuple = ()
     input_key: str = 'default'
 
+    @operation
     def __post_init__(self):
         label(self.input_key)
         if type(self.family) is not InputFamily or type(self.state) is not Availability: raise ValueError('Invalid availability')
@@ -200,6 +214,7 @@ class LineageReference:
     asserted_by: str
     basis: str
 
+    @operation
     def __post_init__(self):
         if type(self.kind) is not LineageKind: raise ValueError('Invalid lineage kind')
         if type(self.child) is not QualifiedReference or type(self.parent) is not QualifiedReference or self.child == self.parent:
@@ -218,6 +233,7 @@ class EvidenceUniverse:
     lineage: tuple = field(init=False)
     manifest_id: str = field(init=False)
 
+    @operation
     def __post_init__(self):
         from .inputs import index_inputs, record_count, validate_lineage
         if type(self.request) is not SelectionRequest: raise ValueError('Invalid request')
@@ -262,3 +278,5 @@ class EvidenceUniverse:
         object.__setattr__(self, 'references', refs)
         object.__setattr__(self, 'lineage', lineage)
         finish(self, 'universe_id', 'BU')
+        object.__setattr__(self, '_objects', MappingProxyType({ref: obj for s in inputs for obj, ref in s._reference_pairs}))
+        object.__setattr__(self, '_snapshots', MappingProxyType({s.snapshot_id: s for s in inputs}))

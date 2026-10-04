@@ -1,4 +1,5 @@
 """Pure categorical assessment. No ranking, direction, selection or inference."""
+from magi.research.validation import operation
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -8,7 +9,7 @@ from ..regulatory.models import RegulatoryItem
 from ..snapshot_models import DerivedMetric, MetricStatus
 from .models import TargetIdentity, QualifiedReference, label, sequence, strings, finish, fingerprint
 from .grouping import GroupedEvidence
-from .inputs import members, reference, temporal_observations, validate_container, TemporalObservation
+from .inputs import temporal_observations, validate_container, TemporalObservation
 
 
 class RelevanceLevel(str, Enum):
@@ -46,6 +47,7 @@ class TargetExposure:
     known_at: datetime
     mapping_id: str = ''
 
+    @operation
     def __post_init__(self):
         if type(self.target) is not TargetIdentity or type(self.reference) is not QualifiedReference:
             raise ValueError('Invalid exposure endpoint')
@@ -63,6 +65,7 @@ class AssessmentPolicy:
     requested_metrics: tuple = ()
     published_since: datetime | None = None
 
+    @operation
     def __post_init__(self):
         if self.version != '7E.3-v1': raise ValueError('Unsupported assessment policy version')
         object.__setattr__(self, 'requested_metrics', strings(self.requested_metrics))
@@ -75,6 +78,7 @@ class AssessmentBasis:
     references: tuple = ()
     mapping_id: str | None = None
 
+    @operation
     def __post_init__(self):
         label(self.rule_id)
         refs = sequence(self.references, QualifiedReference)
@@ -88,6 +92,7 @@ class ReferenceFitness:
     fitness: TemporalFitness
     reasons: tuple = ()
 
+    @operation
     def __post_init__(self):
         if type(self.reference) is not QualifiedReference or type(self.fitness) is not TemporalFitness:
             raise ValueError('Invalid temporal assessment')
@@ -106,6 +111,7 @@ class GroupAssessment:
     uncertainties: tuple
     assessment_id: str = ''
 
+    @operation
     def __post_init__(self):
         label(self.group_id)
         for value, cls in ((self.relevance, RelevanceLevel), (self.attention, AttentionLevel), (self.temporal, TemporalFitness)):
@@ -126,6 +132,7 @@ class AssessmentSet:
     assessments: tuple = field(init=False)
     assessment_set_id: str = ''
 
+    @operation
     def __post_init__(self):
         if type(self.grouped) is not GroupedEvidence or type(self.policy) is not AssessmentPolicy:
             raise ValueError('Invalid assessment input')
@@ -202,7 +209,7 @@ def _relevance(obj, target):
 
 def _assess(result):
     universe = result.grouped.universe
-    objects = {reference(s, o): o for s in universe.inputs for o in members(s.container)}
+    objects = universe._objects
     generated = [x for x in universe.lineage if x.asserted_by == 'structured-input-v1']
     derived_sources = {x.child.content_fingerprint for x in generated if x.basis in ('source-article','source-regulatory-item')}
     roots = {r for r, o in objects.items() if type(o) in (NewsArticle, RegulatoryItem)

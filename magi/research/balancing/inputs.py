@@ -1,4 +1,5 @@
 """Pure bridges from validated normalized containers; never imports fetch services."""
+from magi.research.validation import operation
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from ..models import EvidencePack, EvidenceItem, ResearchSource, instant
@@ -18,11 +19,18 @@ def family_for(container):
     raise ValueError('Unsupported normalized container; market provenance bridge is deferred')
 
 
+@operation
 def validate_container(container):
     # Re-run existing graph/derived-value checks, including objects constructed
     # outside normal builders. The caller's original immutable object is retained.
     from ..serialization import encode, decode
-    if decode(encode(container)) != container: raise ValueError('Invalid normalized container')
+    from ..validation import _already_validated, _remember_validated, _verify_runtime_indexes
+    encoded = encode(container)
+    if _already_validated(container, encoded): return
+    rebuilt = decode(encoded)
+    if rebuilt != container: raise ValueError('Invalid normalized container')
+    _verify_runtime_indexes(container, rebuilt)
+    _remember_validated(container, encoded)
 
 
 def record_count(container):
@@ -63,6 +71,7 @@ def reference(snapshot, obj):
     return QualifiedReference(snapshot.snapshot_id, type(obj).__name__, identifier, fingerprint(obj))
 
 
+@operation
 def index_inputs(inputs):
     refs = {}; links = set(); snapshots = {s.snapshot_id: s for s in inputs}
     def link(kind, child, parent, basis):
@@ -70,7 +79,8 @@ def index_inputs(inputs):
             links.add(LineageReference(kind, child, parent, 'structured-input-v1', basis))
     for snapshot in inputs:
         container = snapshot.container
-        pairs = tuple((obj, reference(snapshot, obj)) for obj in members(container))
+        validate_container(snapshot)
+        pairs = snapshot._reference_pairs
         for obj, ref in pairs:
             old = refs.get(ref.reference_id)
             if old is not None and old != ref: raise ValueError('Reference collision')
@@ -144,6 +154,7 @@ def validate_lineage(refs, links):
     for key in sorted(graph): visit(key)
 
 
+@operation
 def build_universe(request, containers=(), *, availability=(), declared_lineage=()):
     inputs = tuple(c if type(c) is InputSnapshot else adapt(c) for c in containers)
     by_id = {s.snapshot_id: s for s in inputs}
@@ -165,12 +176,17 @@ def build_universe(request, containers=(), *, availability=(), declared_lineage=
     return EvidenceUniverse(request, inputs, tuple(manifest), tuple(declared_lineage))
 
 
+@operation
 def resolve(universe, ref):
     if ref not in universe.references: raise ValueError('Unknown qualified reference')
-    snapshot = next(s for s in universe.inputs if s.snapshot_id == ref.snapshot_id)
-    for obj in members(snapshot.container):
-        if reference(snapshot, obj) == ref: return obj
-    raise ValueError('Unresolved qualified reference')
+    obj = universe._objects.get(ref)
+    if obj is None: raise ValueError('Unknown qualified reference')
+    snapshot = universe._snapshots[ref.snapshot_id]
+    if fingerprint(obj) != ref.content_fingerprint:
+        raise ValueError('Unresolved qualified reference')
+    if not any(value is obj for value in members(snapshot.container)):
+        raise ValueError('Changed container membership')
+    return obj
 
 
 @dataclass(frozen=True)
@@ -180,6 +196,7 @@ class TemporalObservation:
     relation_to_as_of: str
     knowledge_boundary: bool = field(init=False)
 
+    @operation
     def __post_init__(self):
         if self.field not in ('published_at', 'retrieved_at', 'created_at', 'occurred_at', 'as_of', 'effective_at', 'period_start', 'period_end'):
             raise ValueError('Invalid temporal field')

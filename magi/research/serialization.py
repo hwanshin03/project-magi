@@ -1,4 +1,5 @@
 """Versioned, deterministic, lossless JSON. No eval, dynamic imports, or I/O."""
+from magi.research.validation import operation
 from dataclasses import fields, is_dataclass
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
@@ -68,6 +69,12 @@ ENUM_TYPES['OmissionReason'] = bs.OmissionReason
 ROOT_TYPES += _SELECTION_MODELS
 
 
+from .sec_projection import SECProjectionPolicy, SECAnalyticalProjection
+MODEL_TYPES.update({c.__name__:c for c in (SECProjectionPolicy, SECAnalyticalProjection)})
+ROOT_TYPES += (SECProjectionPolicy, SECAnalyticalProjection)
+
+
+@operation
 def encode(value):
     if isinstance(value,Enum): return {'$enum':type(value).__name__,'value':value.value}
     if isinstance(value,m.FrozenMetadata): return {'$map':[[k,encode(v)] for k,v in value.entries]}
@@ -85,6 +92,7 @@ def encode(value):
     raise ValueError('Unsupported serialized value')
 
 
+@operation
 def decode(node):
     if node is None or type(node) in (str,bool,int):
         if isinstance(node,str): safe_text(node)
@@ -116,15 +124,19 @@ def decode(node):
         result=cls(**{f.name:values[f.name] for f in fields(cls) if f.init})
         for f in fields(cls):
             if not f.init and values[f.name]!=getattr(result,f.name): raise ValueError('Forged derived field')
+        from .validation import _remember_validated
+        _remember_validated(result, encode(result))
         return result
     raise ValueError('Unknown serialization tag')
 
 
+@operation
 def to_dict(value):
     if not isinstance(value,ROOT_TYPES): raise ValueError('Unsupported research root')
     return {'schema_version':m.SCHEMA_VERSION,'data':encode(value)}
 
 
+@operation
 def from_dict(value):
     try:
         if not isinstance(value,dict) or set(value)!={'schema_version','data'} or type(value['schema_version']) is not int or value['schema_version']!=m.SCHEMA_VERSION:
@@ -136,6 +148,7 @@ def from_dict(value):
         raise ValueError('Malformed research serialization') from None
 
 
+@operation
 def dumps(value):
     return json.dumps(to_dict(value),sort_keys=True,ensure_ascii=False,allow_nan=False,separators=(',',':'))
 
@@ -148,6 +161,7 @@ def _pairs(pairs):
     return result
 
 
+@operation
 def loads(value):
     try:
         parsed=json.loads(value,object_pairs_hook=_pairs,parse_constant=lambda _: (_ for _ in ()).throw(ValueError('Invalid JSON constant')))

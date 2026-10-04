@@ -1,4 +1,5 @@
 """Immutable research snapshots. Authority and claim status are not truth scores."""
+from magi.research.validation import operation
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
 from datetime import datetime, date, timedelta
@@ -82,6 +83,7 @@ class WarningCode(str, Enum):
 class FrozenMetadata(Mapping):
     entries: tuple = ()
 
+    @operation
     def __post_init__(self):
         pairs = tuple(self.entries)
         if any(not isinstance(pair, (tuple,list)) or len(pair)!=2 for pair in pairs):
@@ -172,6 +174,7 @@ class ResearchSource:
     external_id: Optional[str] = None
     metadata: FrozenMetadata = field(default_factory=FrozenMetadata)
 
+    @operation
     def __post_init__(self):
         enum(self.source_type,SourceType);enum(self.authority,Authority)
         if self.source_type==SourceType.MAGI_MEMORY and self.authority!=Authority.INTERNAL_HISTORY:
@@ -202,6 +205,7 @@ class SourceLocator:
     timestamp: Optional[str] = None  # Media/document position, not publication time.
     article_section: Optional[str] = None
 
+    @operation
     def __post_init__(self):
         if self.page is not None and (type(self.page) is not int or self.page<1): raise ValueError('Invalid page')
         for f in fields(self):
@@ -226,6 +230,7 @@ class EvidenceItem:
     extraction_confidence: Optional[Decimal] = None
     metadata: FrozenMetadata = field(default_factory=FrozenMetadata)
 
+    @operation
     def __post_init__(self):
         if not isinstance(self.metadata,Mapping): raise ValueError('Metadata requires a mapping')
         object.__setattr__(self,'metadata',freeze(self.metadata))
@@ -265,6 +270,7 @@ class ResearchClaim:
     unresolved_evidence_ids: Tuple[str,...] = ()
     status: ClaimStatus = field(init=False)
 
+    @operation
     def __post_init__(self):
         common(self.subject,self.ticker);text(self.claim_text);text(self.created_by)
         enum(self.category,Category);instant(self.created_at)
@@ -285,6 +291,7 @@ class EvidenceRelation:
     evidence_ids: Tuple[str,...]
     note: Optional[str] = None
 
+    @operation
     def __post_init__(self):
         enum(self.kind,RelationKind);text(self.note,optional=True)
         object.__setattr__(self,'evidence_ids',ids(self.evidence_ids))
@@ -314,6 +321,7 @@ class EvidencePack:
     warnings: Tuple[WarningCode,...] = field(init=False)
     coverage: FrozenMetadata = field(init=False)
 
+    @operation
     def __post_init__(self):
         common(self.subject,self.ticker);instant(self.created_at)
         if self.market is not None and (not isinstance(self.market,str) or not re.fullmatch('[A-Z][A-Z0-9_-]{0,15}',self.market)): raise ValueError('Invalid market')

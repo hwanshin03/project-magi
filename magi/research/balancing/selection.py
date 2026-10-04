@@ -1,4 +1,5 @@
 """Offline, citation-closed structural views. No agents, retrieval or truth scoring."""
+from magi.research.validation import operation
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime, date
@@ -6,7 +7,7 @@ import json
 from ..models import EvidenceItem, ResearchClaim, RelationKind, Category
 from ..news.models import NewsArticle
 from .models import QualifiedReference, LineageKind, sequence, strings, finish
-from .inputs import members, reference, validate_container
+from .inputs import reference, validate_container
 from .assessment import AssessmentSet, RelevanceLevel, AttentionLevel, TemporalFitness
 
 
@@ -32,6 +33,7 @@ class EvidenceSelectionPolicy:
     review_slots: int = 1
     required_groups: tuple = ()
 
+    @operation
     def __post_init__(self):
         if self.version != '7E.4-v1' or self.budget_profile != 'structural-v1':
             raise ValueError('Unsupported selection policy/profile')
@@ -51,6 +53,7 @@ class BudgetUsage:
     citations: int
     rendered_bytes: int
 
+    @operation
     def __post_init__(self):
         if any(type(v) is not int or v < 0 for v in (self.groups,self.units,self.citations,self.rendered_bytes)):
             raise ValueError('Invalid budget usage')
@@ -70,6 +73,7 @@ class SelectedGroup:
     review_only: bool = False
     audit_codes: tuple = ()
 
+    @operation
     def __post_init__(self):
         strings((self.group_id,))
         for name in ('units','citations','conflicts'):
@@ -87,6 +91,7 @@ class OmittedGroup:
     group_id: str
     reason: OmissionReason
 
+    @operation
     def __post_init__(self):
         strings((self.group_id,))
         if type(self.reason) is not OmissionReason: raise ValueError('Invalid omission reason')
@@ -98,6 +103,7 @@ class AgentEvidenceView:
     group_ids: tuple
     usage: BudgetUsage
 
+    @operation
     def __post_init__(self):
         if self.agent not in ('Melchior','Balthasar','Casper'): raise ValueError('Unknown agent view')
         ids = sequence(self.group_ids, str)
@@ -117,6 +123,7 @@ class EvidenceSelection:
     usage: BudgetUsage = field(init=False)
     selection_id: str = ''
 
+    @operation
     def __post_init__(self):
         if type(self.assessment) is not AssessmentSet or type(self.policy) is not EvidenceSelectionPolicy:
             raise ValueError('Invalid selection input')
@@ -151,7 +158,7 @@ class _Index:
         self.universe = assessment.grouped.universe
         self.groups = {g.group_id:g for g in assessment.grouped.groups}
         self.assessments = {a.group_id:a for a in assessment.assessments}
-        self.objects = {reference(s,o):o for s in self.universe.inputs for o in members(s.container)}
+        self.objects = self.universe._objects
         self.parents = {}
         for link in self.universe.lineage:
             if link.asserted_by == 'structured-input-v1' and link.kind == LineageKind.DERIVED_FROM:
@@ -234,7 +241,7 @@ class _Index:
         result = []
         for s in self.universe.inputs:
             c = s.container
-            evidence = {o.evidence_id:reference(s,o) for o in members(c) if type(o) is EvidenceItem}
+            evidence = {o.evidence_id:r for o,r in s._reference_pairs if type(o) is EvidenceItem}
             for o in (*getattr(c,'claims',()), *getattr(c,'relations',())):
                 if type(o) is ResearchClaim:
                     if o.created_at > self.universe.request.as_of: continue
@@ -376,6 +383,7 @@ def _select(index,policy):
     return tuple(chosen),tuple(OmittedGroup(k,omissions[k]) for k in sorted(omissions))
 
 
+@operation
 def render_view(selection,agent=None):
     """Bounded inspectable JSON, not an agent request or an exact token guarantee.
 

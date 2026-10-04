@@ -1,4 +1,5 @@
 """Pure deterministic selection from official evidence. No provider calls or storage."""
+from magi.research.validation import operation
 from datetime import date, datetime, timezone, timedelta
 from decimal import Decimal, localcontext, ROUND_HALF_EVEN
 from .models import EvidencePack, Authority, SourceType
@@ -80,6 +81,7 @@ def _dart_field(name,kind,prior):
     return 'frmtrm_add_amount' if prior else 'thstrm_add_amount'
 
 
+@operation
 def build_snapshot(pack,*,report='annual',year=None,currency=None,division='CFS'):
     if not isinstance(pack,EvidencePack) or report not in REPORTS or division not in ('CFS','OFS'):
         raise ValueError('Invalid snapshot request')
