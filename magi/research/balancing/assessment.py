@@ -9,7 +9,8 @@ from ..regulatory.models import RegulatoryItem
 from ..snapshot_models import DerivedMetric, MetricStatus
 from .models import TargetIdentity, QualifiedReference, label, sequence, strings, finish, fingerprint
 from .grouping import GroupedEvidence
-from .inputs import temporal_observations, validate_container, TemporalObservation
+from .inputs import validate_container
+from ..temporal import TEMPORAL_VERSION, availability, publication_time, relation, derived_available
 
 
 class RelevanceLevel(str, Enum):
@@ -64,9 +65,11 @@ class AssessmentPolicy:
     version: str = '7E.3-v1'
     requested_metrics: tuple = ()
     published_since: datetime | None = None
+    temporal_version: str = TEMPORAL_VERSION
 
     @operation
     def __post_init__(self):
+        if self.temporal_version != TEMPORAL_VERSION: raise ValueError('Unsupported temporal policy')
         if self.version != '7E.3-v1': raise ValueError('Unsupported assessment policy version')
         object.__setattr__(self, 'requested_metrics', strings(self.requested_metrics))
         instant(self.published_since, True)
@@ -150,35 +153,23 @@ class AssessmentSet:
 
 
 def _fitness(universe, ref, policy, obj):
-    observations = temporal_observations(universe, ref)
-    if obj.metadata.get('publication_precision') in ('date; midnight UTC convention', 'date; midnight KST convention'):
-        # Legacy filing adapters explicitly label midnight as a date convention.
-        # Preserve their records; assess the declared precision, not the placeholder.
-        normalized = []
-        for o in observations:
-            if o.field == 'published_at' and isinstance(o.value, datetime):
-                value = o.value.date(); boundary = universe.request.as_of.date()
-                relation = 'DATE_AFTER' if value > boundary else 'DATE_BEFORE' if value < boundary else 'SAME_DATE_UNORDERED'
-                o = TemporalObservation(o.field, value, relation)
-            normalized.append(o)
-        observations = tuple(normalized)
-    boundaries = [o for o in observations if o.knowledge_boundary]
-    # Retrieval after the boundary cannot establish historical availability, even
-    # when a publication claims an earlier date. Never use that version's content.
-    if any(o.relation_to_as_of in ('AFTER','DATE_AFTER') for o in boundaries):
-        return ReferenceFitness(ref, TemporalFitness.FUTURE_RELATIVE_TO_AS_OF, ('AFTER_AS_OF',))
-    publication = next((o for o in boundaries if o.field == 'published_at'), None)
-    if not publication or publication.relation_to_as_of in ('UNKNOWN','SAME_DATE_UNORDERED'):
-        return ReferenceFitness(ref, TemporalFitness.UNKNOWN, ('PUBLICATION_TIME_UNRESOLVED',))
+    boundary = universe.request.as_of
+    basis, ordering = availability(obj, boundary)
+    reasons = ('RETRIEVAL_TIME_FALLBACK',) if basis == 'retrieved_at' else ()
+    if ordering in ('AFTER','DATE_AFTER'):
+        return ReferenceFitness(ref, TemporalFitness.FUTURE_RELATIVE_TO_AS_OF, (*reasons, 'AFTER_AS_OF'))
+    if ordering in ('UNKNOWN','SAME_DATE_UNORDERED'):
+        return ReferenceFitness(ref, TemporalFitness.UNKNOWN, (*reasons, 'PUBLICATION_TIME_UNRESOLVED'))
     if policy.published_since:
-        value = publication.value
-        if isinstance(value, datetime): outside = value < policy.published_since
-        else:
-            if value == policy.published_since.date():
-                return ReferenceFitness(ref, TemporalFitness.UNKNOWN, ('HORIZON_DATE_UNORDERED',))
-            outside = value < policy.published_since.date()
+        value = publication_time(obj)
+        horizon = relation(value, policy.published_since)
+        if horizon == 'UNKNOWN':
+            return ReferenceFitness(ref, TemporalFitness.UNKNOWN, (*reasons, 'PUBLICATION_TIME_UNRESOLVED'))
+        if horizon == 'SAME_DATE_UNORDERED':
+            return ReferenceFitness(ref, TemporalFitness.UNKNOWN, ('HORIZON_DATE_UNORDERED',))
+        outside = value < policy.published_since if isinstance(value, datetime) else horizon == 'DATE_BEFORE'
         if outside: return ReferenceFitness(ref, TemporalFitness.OUTSIDE_HORIZON, ('BEFORE_DECLARED_HORIZON',))
-    return ReferenceFitness(ref, TemporalFitness.AS_OF_COMPATIBLE)
+    return ReferenceFitness(ref, TemporalFitness.AS_OF_COMPATIBLE, reasons)
 
 
 def _relevance(obj, target):
@@ -254,12 +245,9 @@ def _assess(result):
                 evidence = {x.parent for x in links}
                 source_links = [x for x in generated if x.child in evidence and x.basis == 'evidence-source']
                 sources = {x.parent for x in source_links}
-                evidence_known = all(not any(o.knowledge_boundary and o.relation_to_as_of in
-                    ('AFTER','DATE_AFTER','SAME_DATE_UNORDERED') for o in temporal_observations(universe, r)) for r in evidence)
-                snapshot = next(s for s in universe.inputs if s.snapshot_id == ref.snapshot_id)
-                derived_known = snapshot.container.created_at <= universe.request.as_of
+                evidence_known = all(derived_available(objects[r], universe.request.as_of) for r in evidence)
                 if (metric.status == MetricStatus.AVAILABLE and evidence and sources <= eligible
-                        and len(source_links) == len(evidence) and evidence_known and derived_known
+                        and len(source_links) == len(evidence) and evidence_known
                         and relevance == RelevanceLevel.DIRECT):
                     satisfied.add(metric.name)
                     basis.append(AssessmentBasis('REQUESTED_COMPARABLE_METRIC', tuple(evidence)))

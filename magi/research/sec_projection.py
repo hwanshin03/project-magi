@@ -7,6 +7,7 @@ from .snapshot_policy import SEC, SEC_CONCEPTS, BALANCE
 from .balancing.models import fingerprint, label, strings
 from .balancing.inputs import validate_container
 from .validation import operation
+from .temporal import TEMPORAL_VERSION, available, availability, derived_available
 
 
 @dataclass(frozen=True)
@@ -19,9 +20,11 @@ class SECProjectionPolicy:
     published_since: datetime | None = None
     currency: str | None = None
     version: str = 'sec-comparable-periods-v1'
+    temporal_version: str = TEMPORAL_VERSION
 
     @operation
     def __post_init__(self):
+        if self.temporal_version != TEMPORAL_VERSION: raise ValueError('Unsupported temporal policy')
         instant(self.as_of); label(self.scope, 4000)
         if self.version != 'sec-comparable-periods-v1' or self.report not in ('annual','quarter'):
             raise ValueError('Unsupported SEC projection policy')
@@ -37,15 +40,6 @@ class SECProjectionPolicy:
             import re
             if not isinstance(self.currency, str) or not re.fullmatch('[A-Z]{3}', self.currency):
                 raise ValueError('Invalid SEC projection currency')
-
-
-def _publication(source, boundary):
-    value = source.published_at
-    if value is None: return False
-    if source.metadata.get('publication_precision') in ('DATE', 'date; midnight UTC convention'):
-        # A date on the cutoff day cannot establish intraday availability.
-        return value.date() < boundary.date()
-    return value <= boundary
 
 
 def _project(catalog, policy):
@@ -71,9 +65,10 @@ def _project(catalog, policy):
     for e in catalog.evidence_items:
         s = sources[e.source_id]; concept = e.metadata.get('concept')
         reason = None
-        if (catalog.created_at > policy.as_of or e.retrieved_at > policy.as_of
-                or s.retrieved_at > policy.as_of): reason = 'AFTER_AS_OF'
-        elif not _publication(s, policy.as_of): reason = 'PUBLICATION_UNAVAILABLE_AT_AS_OF'
+        ordering = availability(s, policy.as_of)[1]
+        if ordering in ('AFTER','DATE_AFTER'): reason = 'AFTER_AS_OF'
+        elif ordering not in ('AT_OR_BEFORE','DATE_BEFORE'): reason = 'PUBLICATION_UNAVAILABLE_AT_AS_OF'
+        elif not derived_available(e, policy.as_of): reason = 'AFTER_AS_OF'
         elif e.period_end is None or e.period_end > policy.as_of.date(): reason = 'PERIOD_UNAVAILABLE_AT_AS_OF'
         elif e.metadata.get('taxonomy') != 'us-gaap' or concept not in policy.concepts: reason = 'OUTSIDE_CONCEPT_SCOPE'
         elif policy.currency and e.unit not in (policy.currency, policy.currency+'/shares'): reason = 'OUTSIDE_CURRENCY_SCOPE'
@@ -94,7 +89,8 @@ def _project(catalog, policy):
         # Preserve ambiguous intervals; Phase 7C will report ambiguity, not guess.
         anchors = {p for p in anchors if p.end == latest}
     if policy.published_since:
-        anchors |= {p for key,p in periods.items() if sources[eligible[key].source_id].published_at >= policy.published_since
+        anchors |= {p for key,p in periods.items() if sources[eligible[key].source_id].published_at is not None
+                    and sources[eligible[key].source_id].published_at >= policy.published_since
                     and (policy.year is None or p.end.year <= policy.year)}
     selected_periods = anchors | {p for p in all_periods if any(comparable(a,p) for a in anchors)}
     balance_ends = {p.end for p in anchors}
@@ -102,8 +98,7 @@ def _project(catalog, policy):
         # Same instant-only fallback as Phase 7C: official report dates only.
         forms = ('10-K','10-K/A','20-F','20-F/A','40-F','40-F/A') if policy.report == 'annual' else ('10-Q','10-Q/A')
         ends = {date.fromisoformat(s.metadata['report_date']) for s in sources.values()
-                if s.document_type in forms and s.metadata.get('report_date') and _publication(s,policy.as_of)
-                and s.retrieved_at <= policy.as_of}
+                if s.document_type in forms and s.metadata.get('report_date') and available(s,policy.as_of)}
         ends = {d for d in ends if d <= policy.as_of.date() and (policy.year is None or d.year == policy.year)}
         if ends: balance_ends = {max(ends)}
     selected = []

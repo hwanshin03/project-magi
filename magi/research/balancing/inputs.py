@@ -3,6 +3,7 @@ from magi.research.validation import operation
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from ..models import EvidencePack, EvidenceItem, ResearchSource, instant
+from ..temporal import publication_time, relation
 from ..snapshot_models import CompanyResearchSnapshot, BaseMetric
 from ..news.models import NewsEvidencePack
 from ..regulatory.models import RegulatoryBundle
@@ -220,18 +221,12 @@ def temporal_observations(universe, ref):
     for name in ('published_at', 'retrieved_at', 'created_at', 'occurred_at', 'as_of', 'effective_at', 'period_start', 'period_end'):
         if hasattr(obj, name): values[name] = getattr(obj, name)
     meta = getattr(obj, 'metadata', {})
-    for name, precision in (('published_at', 'publication_precision'), ('effective_at', 'effective_precision')):
-        if values.get(name) is None and meta.get(precision) == 'DATE' and meta.get(name):
-            values[name] = date.fromisoformat(meta[name])
+    if 'published_at' in values or meta.get('publication_precision') == 'DATE' and meta.get('published_at'):
+        values['published_at'] = publication_time(obj)
+    if values.get('effective_at') is None and meta.get('effective_precision') == 'DATE' and meta.get('effective_at'):
+        values['effective_at'] = date.fromisoformat(meta['effective_at'])
     period = getattr(obj, 'period', None)
     if period:
         values['period_start'] = period.start; values['period_end'] = period.end
-    result = []
-    for name, value in sorted(values.items()):
-        if value is None: relation = 'UNKNOWN'
-        elif isinstance(value, datetime): relation = 'AFTER' if value > boundary else 'AT_OR_BEFORE'
-        elif type(value) is date:
-            relation = 'DATE_AFTER' if value > boundary.date() else 'DATE_BEFORE' if value < boundary.date() else 'SAME_DATE_UNORDERED'
-        else: raise ValueError('Invalid temporal metadata')
-        result.append(TemporalObservation(name, value, relation))
-    return tuple(result)
+    return tuple(TemporalObservation(name, value, relation(value, boundary))
+                 for name, value in sorted(values.items()))

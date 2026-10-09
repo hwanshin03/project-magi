@@ -142,7 +142,7 @@ class AgentResearchContextTests(unittest.TestCase):
         self.assertTrue(any(r['kind']=='EvidenceRelation' for r in body['selected_provenance_untrusted']))
 
     def test_future_exclusion_notice_not_content(self):
-        req=replace(target(),as_of=NOW-timedelta(hours=1),request_id='')
+        req=replace(target(),as_of=NOW-timedelta(days=2),request_id='')
         s=selected(document('FUTURE_SECRET_TITLE',title='FUTURE CONTENT'),req=req)
         body=render(s).user_content
         self.assertNotIn('FUTURE CONTENT',body);self.assertNotIn('FUTURE_SECRET_TITLE',body)

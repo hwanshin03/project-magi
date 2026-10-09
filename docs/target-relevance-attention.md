@@ -49,7 +49,8 @@ Version `7E.3-v1` uses these narrow rules:
 - Insufficient or unrelated connection: UNASSESSED.
 - Explicitly requested existing comparable financial metric: ELEVATED only when
   Phase 7C marks that DerivedMetric AVAILABLE, its cited sources/evidence are known
-  by as_of, the derived snapshot is not future-created, and relevance is DIRECT.
+  by as_of, explicit evidence boundaries are satisfied, and relevance is DIRECT.
+  Later deterministic calculation/extraction is not new public information.
 
 `AssessmentPolicy.requested_metrics` names existing derived metrics such as
 `revenue_yoy`. This declares a structured research question; prose in request.scope
@@ -67,15 +68,15 @@ the assessment never resolves them or calls them consensus.
 
 ## Temporal boundary
 
-`SelectionRequest.as_of` is authoritative. Temporal observations reuse Phase 7E.1.
-The assessor examines original document/report roots; derived representations do
-not independently increase eligibility or support. A publication or retrieval after
-as_of excludes that version from relevance/attention, even if a future-retrieved
-record claims an older publication date. Missing publication time and same-day
-calendar-only publication are UNKNOWN and excluded conservatively.
-The existing SEC/DART `date; midnight UTC/KST convention` metadata is honored as
-date precision, so those placeholder midnights never establish intraday availability.
-Their stored values and earlier temporal-observation API remain unchanged.
+`SelectionRequest.as_of` is authoritative. The original document/report root's
+explicit publication time controls availability, even when retrieved later. Missing
+publication falls back to retrieval with `RETRIEVAL_TIME_FALLBACK`: possession must
+already have occurred by as_of. The fallback cannot establish a publication horizon.
+Same-day calendar-only publication stays UNKNOWN; retrieval never overrides it.
+SEC/DART `date; midnight UTC/KST convention` metadata is honored as date precision.
+Stored timestamps stay unchanged; temporal observations now consistently expose
+those declared calendar dates, just as the assessor already did.
+See [Phase 7F.3 temporal eligibility](temporal-eligibility.md).
 
 A prior calendar date remains a date and can be as-of compatible under the existing
 request-calendar comparison convention; no source timezone is invented. Optional
@@ -93,7 +94,7 @@ remain available through the retained universe and its temporal observations.
 
 ## Determinism and validation
 
-AssessmentPolicy currently accepts only `7E.3-v1`; unknown implementations are
+AssessmentPolicy accepts `7E.3-v1` with `temporal_version=public-availability-v1`; unknown implementations are
 rejected rather than silently executing old rules under a new label. Policy inputs,
 request, original grouping, exposure assertions and derived assessments enter the
 content-derived IDs. No clocks, random IDs, language models or API access are needed.

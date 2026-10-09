@@ -19,13 +19,15 @@ from magi.research.serialization import dumps
 
 
 class ResearchPerformanceTests(unittest.TestCase):
-    def test_preoptimization_artifact_goldens(self):
-        # Captured from unmodified 62f71f9. Hash includes the COMPLETE serialized
-        # graph, each resolved object's fingerprint and every temporal decision.
-        expected=('5c7f368e68ee2705cac54a618e0b85e29a02876da0ebe6a98e0cf40d6ed7ff44',
-                  'b2a15a75b03c80b52a07436dcd6e1b7ca15dd29c43e6d3930257bd857d310096',
-                  'c460171c2e240c2963873df665538b2e797fc05f737fafe11acb41c9d479f380',
-                  '5b414f63aec2de630a07d51e7faafcc09a9135f1957440d664f1b1c5aa810405')
+    def test_temporal_versioned_artifact_goldens(self):
+        # Phase 7F.3 adds the identity-bound temporal policy version. Compared
+        # against 3981d71: grouping, assessments, selected core/views/omissions,
+        # usage, resolved fingerprints and temporal observations are identical
+        # for these already-eligible fixtures. Full graph IDs include the new policy.
+        expected=('44d0aabd55f7dc6ec357b27a869a645b13c1e2d33be92cd092b66b8fcc35d74b',
+                  '35c4fa3ce04f71ae60950a6ed59a79d6842fe21e031e0c9a6a1a1162baf1116e',
+                  '47376774834d719aa23e9b2b54dcff2e21827b491a3016184a2896b545e75ae5',
+                  '114de4dd8271206eb19569b17a889fd305a1b0e3f3dc627e7b4e6ad62a157ba7')
         from test_balancing_assessment import target
         from test_balancing_selection import contested
         cases=((request(),()),(request(),(pack(),)),

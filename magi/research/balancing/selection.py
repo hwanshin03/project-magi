@@ -2,12 +2,12 @@
 from magi.research.validation import operation
 from dataclasses import dataclass, field
 from enum import Enum
-from datetime import datetime, date
 import json
 from ..models import EvidenceItem, ResearchClaim, RelationKind, Category
 from ..news.models import NewsArticle
 from .models import QualifiedReference, LineageKind, sequence, strings, finish
 from .inputs import reference, validate_container
+from ..temporal import derived_available
 from .assessment import AssessmentSet, RelevanceLevel, AttentionLevel, TemporalFitness
 
 
@@ -224,18 +224,10 @@ class _Index:
         closure = self.closure((r,))
         roots = closure & set(self.fitness)
         if not roots or not roots <= self.eligible: return False
-        # Root publication precision has already been adjudicated by Phase 7E.3.
-        # Check the actual derived records' availability without repeatedly resolving
-        # the same qualified object through a full container serialization.
-        for ref in closure - self.eligible:
-            obj = self.objects[ref]
-            for name in ('published_at','retrieved_at','created_at','as_of'):
-                value = getattr(obj,name,None)
-                if isinstance(value,datetime):
-                    if value > self.universe.request.as_of: return False
-                elif type(value) is date and value >= self.universe.request.as_of.date():
-                    return False
-        return True
+        # Source availability is established by the eligible roots. Extraction
+        # time does not veto their deterministic normalized representations.
+        return all(derived_available(self.objects[ref], self.universe.request.as_of)
+                   for ref in closure - self.eligible)
 
     def _conflicts(self):
         result = []

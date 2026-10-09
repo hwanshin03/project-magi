@@ -148,7 +148,9 @@ input. A later narrow pure bridge can add support without changing fetching serv
 ranking records. It preserves aware datetimes, calendar dates, effective dates,
 reporting-period boundaries and unknown values. Known regulatory date-only metadata
 is recovered for generic source/evidence references, so FSC publication dates remain
-known even when generic timestamp fields are `None`.
+known even when generic timestamp fields are `None`. Phase 7F.3 also exposes
+legacy SEC/DART declared midnight conventions as dates in this diagnostic view;
+the original stored timestamps are unchanged.
 
 Aware instants compare as AFTER or AT_OR_BEFORE the explicit request boundary. Date-only
 values compare to the calendar in the caller's `as_of` as DATE_BEFORE, DATE_AFTER or

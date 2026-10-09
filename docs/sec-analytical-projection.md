@@ -42,11 +42,14 @@ caller-supplied research graphs continue through their existing path.
 
 ## Time boundary and audit
 
-Catalog creation, evidence retrieval and source retrieval must be at or before
-`as_of`. Publication must establish availability by that cutoff, and a reporting
-period cannot end after it. Date-only publication on the cutoff day is excluded
-as unresolved, rather than treated as midnight knowledge. Unknown publication
-is excluded explicitly. No timestamps are rewritten to make evidence eligible.
+Phase 7F.3 uses `public-availability-v1` temporal eligibility alongside the unchanged
+`sec-comparable-periods-v1` period policy. Explicit publication establishes source
+availability; later retrieval and catalog normalization do not veto it. Without
+publication, retrieval can establish possession by the cutoff, but never earlier.
+A reporting period and any explicit evidence `as_of` must still respect the cutoff.
+Date-only publication on the cutoff day is excluded as unresolved, rather than
+interpreted as midnight knowledge. All original timestamps remain intact.
+See [temporal eligibility](temporal-eligibility.md) for fallback and precision rules.
 
 `audit` contains exactly one `(evidence_id, reason)` row for every original
 observation. Reasons distinguish required-period selection, history outside the
@@ -106,13 +109,12 @@ mixed sources and changed versions of the same source. Security tests cover
 nested credentials, standard secret patterns, local-file refresh, fail-closed
 reads, fresh operations and mutation detection.
 
-All development verification is offline. A live analysis cutoff established
-before collection will exclude SEC versions retrieved after that cutoff; this is
-intentional and must not be “fixed” by backdating retrieval. A separately approved
-second live verification should distinguish transport timing from analytical
-CPU timing and explicitly establish an analysis cutoff compatible with the
-collected immutable snapshots. It must inspect projected counts/reasons and
-provenance, rather than assuming a nonempty SEC projection.
+Phase 7F.3 corrects the former retrieval-time veto observed in the second live run.
+A cutoff captured before collection can now admit an explicitly earlier publication;
+it is never advanced after collection. Future publication and ambiguous same-day
+publication remain excluded. This correction is offline verified only; a separately
+authorized live verification must inspect counts, exclusion reasons and provenance.
+
 
 ## Offline benchmark results
 

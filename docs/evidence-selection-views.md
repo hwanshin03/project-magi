@@ -34,7 +34,10 @@ independence score is produced.
 ## Selection rounds and priorities
 
 Only roots marked AS_OF_COMPATIBLE by Phase 7E.3 can supply content. Derived evidence
-must also have eligible provenance and no future knowledge timestamps. Mixed groups
+must also have eligible provenance and no future explicit knowledge boundaries.
+Phase 7F.3 treats later extraction as provenance, while preserving explicit
+publication/evidence-as-of and authored-assertion creation bounds; see
+[temporal eligibility](temporal-eligibility.md). Mixed groups
 may retain eligible roots; excluded versions cannot supply topics or excerpts.
 Unrelated groups are omitted. Unresolved groups use at most the explicit review-slot
 limit and stay labeled as unresolved; relevance/attention are never promoted.

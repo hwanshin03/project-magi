@@ -91,12 +91,12 @@ stored order. Citations, budgets, uncertainty, omissions and disagreement notice
 remain owned by Phase 7E. Question/scope is explicit; no semantic interpretation or
 model-based selection is introduced.
 
-Explicit as_of is never replaced with the current clock. Publication/retrieval
-knowledge after that cutoff remains excluded by Phase 7E. Date-only ambiguity is
-not promoted to a precise instant. Live collectors retain actual retrieval times:
-a live response retrieved after an explicit historical cutoff may be excluded.
-This is intentional look-ahead protection, not a reason to backdate retrieval.
-Retrospective runs should use appropriately dated normalized inputs.
+Explicit as_of is never replaced with the current clock or moved after collection.
+Phase 7F.3 admits prior-public information collected later, using explicit publication
+and preserving date-only ambiguity. Unknown publication falls back conservatively
+to retrieval; future-public information remains excluded. Retrieval and normalization
+timestamps are retained for provenance, not backdated. See
+[temporal eligibility](temporal-eligibility.md) for historical-analysis limits.
 
 VotingEngine remains authoritative, including its two-of-three and partial
 availability rules. An optional injected explanation engine receives the completed

@@ -131,7 +131,7 @@ class AssessmentTests(unittest.TestCase):
         self.assertEqual(assess(bundle([item])).assessments[0].temporal,T.AS_OF_COMPATIBLE)
 
     def test_future_timestamp_excluded(self):
-        req=replace(target(),as_of=NOW-timedelta(hours=1),request_id='')
+        req=replace(target(),as_of=NOW-timedelta(days=2),request_id='')
         a=assess(pack(),req=req).assessments[0]
         self.assertEqual((a.temporal,a.relevance,a.attention),(T.FUTURE_RELATIVE_TO_AS_OF,R.UNRESOLVED,A.UNASSESSED))
 
@@ -143,9 +143,10 @@ class AssessmentTests(unittest.TestCase):
         p=replace(p,evidence_items=(e,),pack_id='')
         self.assertEqual(assess(p).assessments[0].temporal,T.AS_OF_COMPATIBLE)
 
-    def test_unknown_publication(self):
+    def test_unknown_publication_uses_observed_time(self):
         p=pack();p=replace(p,sources=(replace(p.sources[0],published_at=None),),pack_id='')
-        a=assess(p).assessments[0];self.assertEqual((a.temporal,a.relevance),(T.UNKNOWN,R.UNRESOLVED))
+        a=assess(p).assessments[0];self.assertEqual((a.temporal,a.relevance),(T.AS_OF_COMPATIBLE,R.DIRECT))
+        self.assertIn('RETRIEVAL_TIME_FALLBACK',a.uncertainties)
 
     def test_input_permutations(self):
         inputs=[pack(),news(articles()),regulatory()];expected=assess(*inputs)
@@ -184,7 +185,7 @@ class AssessmentTests(unittest.TestCase):
 
     def test_mixed_future_no_improvement(self):
         current=articles(namespace='fixture',key='event')[0]
-        future=replace(current,url='https://example.org/future',retrieved_at=NOW+timedelta(days=1),article_id='')
+        future=replace(current,url='https://example.org/future',retrieved_at=NOW+timedelta(days=1),published_at=NOW+timedelta(hours=1),article_id='')
         from magi.research.news.service import build_news_pack
         n=build_news_pack([current,future],ticker='NVDA',subject='Synthetic',created_at=NOW+timedelta(days=1))
         a=assess(n).assessments[0]
@@ -202,16 +203,16 @@ class AssessmentTests(unittest.TestCase):
         req=replace(target(),target=TargetIdentity(entity=EntityIdentity('internal','issuer')),request_id='')
         self.assertEqual(assess(pack(),req=req).assessments[0].relevance,R.UNRESOLVED)
 
-    def test_future_derived_snapshot_cannot_elevate(self):
+    def test_later_calculation_of_known_inputs_can_elevate(self):
         p=financial();s=build_snapshot(p);s=replace(s,created_at=NOW+timedelta(days=1))
         a=assess(p,s,policy=AssessmentPolicy(requested_metrics=('revenue_yoy',))).assessments[0]
-        self.assertEqual(a.attention,A.UNASSESSED)
+        self.assertEqual(a.attention,A.ELEVATED)
 
-    def test_later_extracted_evidence_cannot_elevate(self):
+    def test_later_extraction_of_known_inputs_can_elevate(self):
         p=financial();later=NOW+timedelta(days=1)
         p=replace(p,evidence_items=tuple(replace(e,retrieved_at=later) for e in p.evidence_items),created_at=later,pack_id='')
         a=assess(p,build_snapshot(p),policy=AssessmentPolicy(requested_metrics=('revenue_yoy',))).assessments[0]
-        self.assertEqual(a.attention,A.UNASSESSED)
+        self.assertEqual(a.attention,A.ELEVATED)
 
     def test_translation_lineage_no_attention_increase(self):
         from magi.research.balancing.models import LineageReference, LineageKind

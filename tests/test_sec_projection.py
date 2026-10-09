@@ -79,7 +79,7 @@ class SECProjectionTests(unittest.TestCase):
         with self.assertRaises(ValueError):replace(c.sources[0],published_at=NOW+timedelta(days=1))
         s=replace(c.sources[0],published_at=None)
         p=self.projection(replace(c,sources=(s,),pack_id=''))
-        self.assertEqual(p.audit[0][1],'PUBLICATION_UNAVAILABLE_AT_AS_OF')
+        self.assertEqual(p.audit[0][1],'SELECTED_REQUIRED_PERIOD')  # observed by the cutoff
         e=replace(c.evidence_items[0],period_end=date(2027,1,1),evidence_id='')
         p=self.projection(replace(c,evidence_items=(e,),pack_id=''))
         self.assertEqual(p.audit[0][1],'PERIOD_UNAVAILABLE_AT_AS_OF')
@@ -100,10 +100,10 @@ class SECProjectionTests(unittest.TestCase):
         self.assertEqual(len({e.value for e in facts}),2)
         self.assertTrue(any(s.metadata['amendment'] for s in p.analytical_pack.sources))
 
-    def test_future_catalog_excluded(self):
+    def test_later_catalog_with_prior_publication_retained(self):
         p=SECAnalyticalProjection(catalog(60),SECProjectionPolicy(NOW-timedelta(seconds=1),'Cutoff'))
-        self.assertFalse(p.analytical_pack.evidence_items)
-        self.assertEqual({reason for _,reason in p.audit},{'AFTER_AS_OF'})
+        self.assertTrue(p.analytical_pack.evidence_items)
+        self.assertNotIn('AFTER_AS_OF',{reason for _,reason in p.audit})
 
     def test_same_date_publication_is_not_backdated(self):
         c=pack();s=replace(c.sources[0],published_at=NOW,metadata={**dict(c.sources[0].metadata),'publication_precision':'date; midnight UTC convention'})

@@ -49,7 +49,7 @@ def contested(count=2, relation=True, future=False):
         'fixture',NOW,supporting_evidence_ids=ids[:1],contrary_evidence_ids=ids[1:]),)
     relations=(EvidenceRelation(RelationKind.CONFLICTING,ids),) if relation else ()
     if future:
-        sources=(*sources[:-1],replace(sources[-1],retrieved_at=NOW+timedelta(days=1)))
+        sources=(*sources[:-1],replace(sources[-1],retrieved_at=NOW+timedelta(days=1),published_at=NOW+timedelta(hours=1)))
         items=(*items[:-1],replace(items[-1],retrieved_at=NOW+timedelta(days=1)))
     return EvidencePack('Synthetic',NOW+timedelta(days=1) if future else NOW,sources,items,claims,
                         ticker='NVDA',market='US',relations=relations)
@@ -125,7 +125,7 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(s.usage.groups,1);self.assertEqual(s.omissions[0].reason,O.REVIEW_LIMIT)
 
     def test_future_excluded(self):
-        req=replace(target(),as_of=NOW-timedelta(hours=1),request_id='')
+        req=replace(target(),as_of=NOW-timedelta(days=2),request_id='')
         s=selected(document(),req=req);self.assertFalse(s.common_core)
         self.assertEqual(s.omissions[0].reason,O.TEMPORAL_EXCLUSION)
 
@@ -275,7 +275,7 @@ class SelectionTests(unittest.TestCase):
         self.assertLessEqual(len(unit['excerpt'].encode()),10);self.assertTrue(unit['truncated'])
 
     def test_future_member_does_not_enter_view(self):
-        a=reports().articles[0];b=replace(a,url='https://example.org/future',retrieved_at=NOW+timedelta(days=1),summary='FUTURE ONLY',article_id='')
+        a=reports().articles[0];b=replace(a,url='https://example.org/future',retrieved_at=NOW+timedelta(days=1),published_at=NOW+timedelta(hours=1),summary='FUTURE ONLY',article_id='')
         from magi.research.news.service import build_news_pack
         p=build_news_pack([a,b],ticker='NVDA',subject='Synthetic',created_at=NOW+timedelta(days=1))
         s=selected(p);self.assertEqual(s.usage.groups,1);self.assertNotIn('FUTURE ONLY',render_view(s))
@@ -323,7 +323,7 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(next(a.relevance.value for a in s.assessment.assessments if a.group_id==key),'DIRECT')
 
     def test_future_requirement_never_bypasses_eligibility(self):
-        req=replace(target(),as_of=NOW-timedelta(hours=1),request_id='')
+        req=replace(target(),as_of=NOW-timedelta(days=2),request_id='')
         a=selected(document(),req=req).assessment
         s=EvidenceSelection(a,Policy(required_groups=(a.grouped.groups[0].group_id,)))
         self.assertFalse(s.common_core);self.assertEqual(s.omissions[0].reason,O.TEMPORAL_EXCLUSION)
