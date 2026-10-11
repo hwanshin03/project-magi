@@ -50,7 +50,8 @@ def fake_clients(failed=()):
                                        reasoning=provider + ' answer', key_risks=['downside'],
                                        evidence_gaps=['latest data']))
             payload = SimpleNamespace(output_text=decision, text=decision,
-                                      content=[SimpleNamespace(text=decision)])
+                                      content=[SimpleNamespace(type='text', text=decision)],
+                                      stop_reason='end_turn', usage=SimpleNamespace(output_tokens=100))
             request = Mock(return_value=payload)
             if provider in failed:
                 request.side_effect = status_error(provider, 503)

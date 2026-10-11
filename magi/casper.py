@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 from anthropic import Anthropic
 from magi.provider import TIMEOUT_SECONDS, call_provider
 from magi.history import agent_request
-from magi.decision import parse_decision, provider_failure
+from magi.decision import provider_failure
+from magi.casper_response import MODEL, MAX_TOKENS, response_result
 
 
 load_dotenv()
@@ -13,10 +14,11 @@ load_dotenv()
 
 class Casper:
     provider = "Anthropic"
-    model = "claude-sonnet-4-6"
+    model = MODEL
 
     def __init__(self):
         self.historical_context = ''
+        self.last_response_diagnostic = None
         self.name = "Casper"
 
         self.client = Anthropic(
@@ -34,24 +36,22 @@ class Casper:
 
     def think(self, question, *, research_selection=None):
 
+        self.last_response_diagnostic = None
         prompt, instructions = agent_request(self.persona, question, self.historical_context,
                                              research_selection=research_selection, agent_name=self.name)
+        attempts = 0
 
-        message = call_provider(self.provider, lambda: self.client.messages.create(
-            model=self.model,
-            max_tokens=1000,
-            system=instructions,
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
-        ))
+        def request():
+            nonlocal attempts
+            attempts += 1
+            return self.client.messages.create(
+                model=self.model,
+                max_tokens=MAX_TOKENS,
+                system=instructions,
+                messages=[{"role": "user", "content": prompt}],
+            )
 
+        message = call_provider(self.provider, request)
         failure = provider_failure(message, self.name, self.provider, self.model)
-        if failure is not None:
-            return failure
-
-        text = "".join(getattr(block, "text", "") for block in (getattr(message, "content", None) or []))
-        return parse_decision(text, self.name, self.provider, self.model)
+        result, self.last_response_diagnostic = response_result(message, attempts, provider_failure=failure)
+        return result
