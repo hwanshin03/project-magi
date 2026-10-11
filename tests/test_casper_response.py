@@ -41,7 +41,7 @@ class CasperResponseTests(unittest.TestCase):
         self.assertEqual(r,parse_decision(body(),'Casper','Anthropic','claude-sonnet-4-6'))
         self.assertIsNone(d.failure_category);self.assertEqual(d.content_blocks,(('text',1),))
         self.assertEqual((d.provider,d.model,d.max_tokens,d.output_tokens,d.attempts),
-                         ('Anthropic','claude-sonnet-4-6',1000,100,1))
+                         ('Anthropic','claude-sonnet-4-6',2000,100,1))
 
     def test_typed_sdk_message(self):
         m=Message(id='synthetic',role='assistant',type='message',model='claude-sonnet-4-6',
@@ -50,10 +50,10 @@ class CasperResponseTests(unittest.TestCase):
         self.assertIsNone(response_result(m,1)[1].failure_category)
 
     def test_max_tokens_truncated(self):
-        self.check_failure(response(body()[:-1],stop='max_tokens',tokens=1000),'incomplete_response')
+        self.check_failure(response(body()[:-1],stop='max_tokens',tokens=2000),'incomplete_response')
 
     def test_max_tokens_valid_json(self):
-        self.check_failure(response(stop='max_tokens',tokens=1000),'incomplete_response')
+        self.check_failure(response(stop='max_tokens',tokens=2000),'incomplete_response')
 
     def test_other_incomplete_stops(self):
         for stop in ('pause_turn','model_context_window_exceeded'):
@@ -121,9 +121,9 @@ class CasperResponseTests(unittest.TestCase):
         self.assertNotIn(marker,json.dumps(asdict(d)))
 
     def test_usage_validation(self):
-        for value in (None,True,-1,1001,1.5,'100'):
+        for value in (None,True,-1,2001,1.5,'100'):
             self.assertIsNone(response_result(response(tokens=value),1)[1].output_tokens)
-        for value in (0,1000):self.assertEqual(response_result(response(tokens=value),1)[1].output_tokens,value)
+        for value in (0,1000,1001,2000):self.assertEqual(response_result(response(tokens=value),1)[1].output_tokens,value)
 
     def test_request_configuration_and_no_parse_retry(self):
         with fake_clients() as (calls,_),patch('magi.provider.time.sleep') as sleep:
@@ -131,9 +131,23 @@ class CasperResponseTests(unittest.TestCase):
             a=Casper();r=a.think('Synthetic question')
             kw=calls['Anthropic'].call_args.kwargs
             self.assertEqual(set(kw),{'model','max_tokens','system','messages'})
-            self.assertEqual(kw['max_tokens'],MAX_TOKENS);self.assertEqual(kw['model'],'claude-sonnet-4-6')
+            self.assertEqual(MAX_TOKENS,2000);self.assertEqual(kw['max_tokens'],2000);self.assertEqual(kw['model'],'claude-sonnet-4-6')
             self.assertEqual(calls['Anthropic'].call_count,1);sleep.assert_not_called()
             self.assertEqual(a.last_response_diagnostic.attempts,1);self.assertEqual(r.error,'invalid_response')
+
+    def test_other_agents_request_options_unchanged(self):
+        from magi.melchior import Melchior
+        from magi.balthasar import Balthasar
+        with fake_clients() as (calls,_):
+            for cls in (Melchior,Balthasar):
+                agent=cls();result=agent.think('Synthetic question')
+                self.assertEqual(result.availability,Availability.AVAILABLE)
+            self.assertEqual(set(calls['OpenAI'].call_args.kwargs),{'model','instructions','input'})
+            gemini=calls['Gemini'].call_args.kwargs
+            self.assertEqual(set(gemini),{'model','config','contents'})
+            self.assertEqual(set(gemini['config']),{'system_instruction'})
+            self.assertEqual(calls['OpenAI'].call_args.kwargs['model'],'gpt-5.5')
+            self.assertEqual(gemini['model'],'gemini-2.5-flash')
 
     def test_retry_success_attempt_count(self):
         with fake_clients() as (calls,_),patch('magi.provider.time.sleep') as sleep:
