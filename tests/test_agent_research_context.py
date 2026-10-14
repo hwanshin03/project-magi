@@ -280,7 +280,7 @@ class AgentResearchContextTests(unittest.TestCase):
             for cls in CLASSES:
                 agent=cls();result=agent.think('Question',research_selection=self.s)
                 self.assertEqual(result.availability,Availability.UNAVAILABLE)
-                self.assertEqual(result.attempts,3);self.assertEqual(result.confidence,0);self.assertIsNone(result.position)
+                self.assertEqual(result.attempts,1 if agent.name=='Casper' else 3);self.assertEqual(result.confidence,0);self.assertIsNone(result.position)
 
     def test_malformed_result_still_unavailable(self):
         with fake_clients() as (calls,_):

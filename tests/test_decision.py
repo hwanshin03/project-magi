@@ -198,7 +198,7 @@ class DecisionTests(unittest.TestCase):
                         self.assertEqual(result.availability, Availability.UNAVAILABLE)
                         self.assertIsNone(result.position)
                         self.assertFalse(result.vote_eligible)
-                        self.assertEqual(result.attempts, 3)
+                        self.assertEqual(result.attempts, 1 if agent.name == 'Casper' else 3)
                         self.assertEqual(result.http_status, 503)
                     else:
                         self.assertEqual(result.availability, Availability.AVAILABLE)

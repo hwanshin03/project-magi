@@ -43,9 +43,11 @@ class ProviderUnavailable:
         return text
 
 
-def call_provider(provider, request):
-    """Try a request three times at most; never include exception bodies/secrets."""
-    for attempt in range(1, MAX_ATTEMPTS + 1):
+def call_provider(provider, request, *, max_attempts=MAX_ATTEMPTS):
+    """Allow callers to lower the retry bound; never expose exception contents."""
+    if type(max_attempts) is not int or not 1 <= max_attempts <= MAX_ATTEMPTS:
+        raise ValueError('Invalid provider attempt limit')
+    for attempt in range(1, max_attempts + 1):
         try:
             return request()
         except PROVIDER_ERRORS as error:
@@ -53,7 +55,7 @@ def call_provider(provider, request):
             if status is None:
                 status = getattr(error, "code", None)
             transient = status in RETRY_STATUSES or isinstance(error, NETWORK_ERRORS)
-            if transient and attempt < MAX_ATTEMPTS:
+            if transient and attempt < max_attempts:
                 time.sleep(0.5 * 2 ** (attempt - 1))
                 continue
             return ProviderUnavailable(

@@ -4,7 +4,8 @@ Phase 7F.4a is an offline compatibility change. It does not establish the cause
 of the previous live invalid JSON response or prove live compatibility.
 
 Casper uses `claude-sonnet-4-6`, `max_tokens=2000`, prompt-only JSON,
-a 30-second timeout and the existing shared retry policy. No structured-output
+a 60-second read timeout, 30-second connect/write/pool timeouts, and one provider
+attempt per invocation (SDK retries disabled). No structured-output
 API option, output repair, Markdown stripping or parsing retry is enabled.
 
 Only `end_turn` responses containing text blocks with string values reach JSON
@@ -74,7 +75,7 @@ initial bounded candidate requested for evaluation: the response contract asks
 for detailed rationale, risks and evidence gaps inside strict JSON. The observed
 exhaustion justifies additional headroom, but does not establish a minimum
 sufficient budget or guarantee completion at 2000 tokens. Larger output can
-increase cost and latency; the existing 30-second timeout remains unchanged.
+increase cost and latency; at that milestone the 30-second timeout was unchanged.
 
 The same constant already supplies the request budget, diagnostic budget and
 safe token-usage range. No settings layer or per-provider abstraction is added.
@@ -86,3 +87,34 @@ Offline tests cannot establish live sufficiency. A separately authorized retest
 should use the same synthetic context, exactly one transmitted Casper request,
 and only safe completion diagnostics. Do not automatically escalate the budget
 or retry if it fails.
+
+
+## Phase 7F.4f: Casper timeout and retry candidate
+
+The complete live analysis observed three ReadTimeout failures and 91.950 seconds
+of Casper latency. A separate smaller synthetic-context live request succeeded in
+22.922 seconds. Neither result establishes the cause of the timeouts or proves
+that input size caused them.
+
+Casper now uses `httpx.Timeout(30, read=60)` and calls the shared provider helper
+with `max_attempts=1`. The helper's default remains three attempts; callers can
+only lower its existing bound. Other agents and the consensus caller retain their
+existing timeout and retry settings. Anthropic SDK retries remain disabled.
+
+The 60-second read timeout is NOT a hard 60-second total request deadline. DNS,
+TCP connection, TLS, pool/write waits, successive response reads, and SDK behavior
+can extend elapsed time. Per-agent/global deadlines require separate design.
+Streaming and concurrency are not introduced.
+
+A read/connection timeout or retryable HTTP failure exhausts Casper's one attempt
+and retains `UNAVAILABLE`, `transient_failure_exhausted`, no position, zero
+confidence, and no vote. Non-retryable errors keep their existing classification.
+Malformed or incomplete responses are not retried. Safe diagnostic attempt counts
+remain accurate; parsing, completion validation, model and output budget are unchanged.
+
+This is a provisional compatibility policy, not a guarantee of completion. Fewer
+attempts reduce duplicate-generation exposure but remove automatic recovery from
+transient failures. A client timeout does not establish server cancellation or zero
+cost. A separately authorized single Casper live retest should preserve the real
+selected-context shape, record only safe timing/completion diagnostics, enforce
+one transmitted attempt, and perform no automatic policy escalation.

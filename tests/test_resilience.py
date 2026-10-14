@@ -127,6 +127,17 @@ class ResilienceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             call_provider('fake', Mock(side_effect=ValueError('bug')))
 
+    def test_attempt_override_is_bounded_and_validated_before_request(self):
+        for value in (0,-1,4,True,1.5,None):
+            with self.subTest(value=value):
+                request=Mock()
+                with self.assertRaises(ValueError):call_provider('fake',request,max_attempts=value)
+                request.assert_not_called()
+        request=Mock(side_effect=status_error('Anthropic',503))
+        result=call_provider('Anthropic',request,max_attempts=1)
+        self.assertEqual(result.attempts,1);self.assertEqual(request.call_count,1)
+        self.sleep.assert_not_called()
+
     def test_client_timeouts_and_sdk_retries(self):
         with fake_clients() as (_, constructors):
             Melchior()
@@ -134,7 +145,7 @@ class ResilienceTests(unittest.TestCase):
             Casper()
             for provider in ['OpenAI', 'Anthropic']:
                 kwargs = constructors[provider].call_args.kwargs
-                self.assertEqual(kwargs['timeout'], 30)
+                self.assertEqual(kwargs['timeout'], httpx.Timeout(30,read=60) if provider=='Anthropic' else 30)
                 self.assertEqual(kwargs['max_retries'], 0)
             options = types.HttpOptions(**constructors['Gemini'].call_args.kwargs['http_options'])
             self.assertEqual(options.timeout, 30000)
@@ -187,7 +198,7 @@ class ResilienceTests(unittest.TestCase):
                 for provider in ['OpenAI', 'Gemini', 'Anthropic']:
                     if provider not in failed:
                         self.assertIn(provider + ' answer', text)
-                    count = 12 if provider in failed else 4
+                    count = 12 if provider in failed and provider != 'Anthropic' else 4
                     if provider == 'OpenAI' and len(failed) < 3:
                         count += 3 if provider in failed else 1
                     self.assertEqual(calls[provider].call_count, count)

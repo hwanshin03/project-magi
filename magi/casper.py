@@ -3,6 +3,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from anthropic import Anthropic
+import httpx
 from magi.provider import TIMEOUT_SECONDS, call_provider
 from magi.history import agent_request
 from magi.decision import provider_failure
@@ -23,7 +24,7 @@ class Casper:
 
         self.client = Anthropic(
             api_key=os.getenv("ANTHROPIC_API_KEY"),
-            timeout=TIMEOUT_SECONDS,
+            timeout=httpx.Timeout(TIMEOUT_SECONDS, read=60),
             max_retries=0,
         )
         with open(
@@ -51,7 +52,7 @@ class Casper:
                 messages=[{"role": "user", "content": prompt}],
             )
 
-        message = call_provider(self.provider, request)
+        message = call_provider(self.provider, request, max_attempts=1)
         failure = provider_failure(message, self.name, self.provider, self.model)
         result, self.last_response_diagnostic = response_result(message, attempts, provider_failure=failure)
         return result

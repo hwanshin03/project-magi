@@ -1,5 +1,7 @@
 """Synthetic completion diagnostics; no credentials, sockets, or database access."""
 import json
+import httpx
+import anthropic
 import unittest
 from dataclasses import asdict
 from types import SimpleNamespace as NS
@@ -149,19 +151,53 @@ class CasperResponseTests(unittest.TestCase):
             self.assertEqual(calls['OpenAI'].call_args.kwargs['model'],'gpt-5.5')
             self.assertEqual(gemini['model'],'gemini-2.5-flash')
 
-    def test_retry_success_attempt_count(self):
-        with fake_clients() as (calls,_),patch('magi.provider.time.sleep') as sleep:
-            calls['Anthropic'].side_effect=[status_error('Anthropic',503),response()]
-            a=Casper();self.assertEqual(a.think('Question').availability,Availability.AVAILABLE)
-            self.assertEqual(a.last_response_diagnostic.attempts,2);sleep.assert_called_once_with(.5)
+    def test_provider_failures_never_retry(self):
+        request=httpx.Request('POST','https://invalid.test')
+        errors=[httpx.ReadTimeout('Synthetic'),httpx.ConnectTimeout('Synthetic'),
+                anthropic.APITimeoutError(request=request),
+                status_error('Anthropic',429),status_error('Anthropic',503),
+                status_error('Anthropic',401)]
+        for error in errors:
+            with self.subTest(error=type(error).__name__,status=getattr(error,'status_code',None)):
+                with fake_clients() as (calls,_),patch('magi.provider.time.sleep') as sleep:
+                    calls['Anthropic'].side_effect=[error,response()]
+                    a=Casper();r=a.think('Question')
+                    self.assertEqual(calls['Anthropic'].call_count,1);sleep.assert_not_called()
+                    self.assertEqual(r.availability,Availability.UNAVAILABLE)
+                    self.assertIsNone(r.position);self.assertEqual(r.confidence,0);self.assertFalse(r.vote_eligible)
+                    reason='non_retryable_provider_error' if getattr(error,'status_code',None)==401 else 'transient_failure_exhausted'
+                    self.assertEqual(r.error,'provider_unavailable:'+reason)
+                    self.assertEqual(r.attempts,1)
+                    self.assertEqual(r.http_status,getattr(error,'status_code',None))
+                    self.assertEqual(a.last_response_diagnostic.failure_category,'provider_failure')
+                    self.assertEqual(a.last_response_diagnostic.attempts,1)
 
-    def test_exhaustion_preserves_failure(self):
-        with fake_clients(('Anthropic',)),patch('magi.provider.time.sleep'):
-            a=Casper();r=a.think('Question')
-            self.assertEqual((r.attempts,r.http_status),(3,503))
-            self.assertEqual(r.error,'provider_unavailable:transient_failure_exhausted')
-            self.assertEqual(a.last_response_diagnostic.failure_category,'provider_failure')
-            self.assertEqual(a.last_response_diagnostic.attempts,3)
+    def test_sdk_timeout_transport_contract(self):
+        calls=[]
+        def transport(request):
+            calls.append(request.extensions['timeout'])
+            raise httpx.ReadTimeout('Synthetic',request=request)
+        def client(**options):
+            self.assertEqual(options['max_retries'],0)
+            options['api_key']='synthetic-offline-key'
+            return anthropic.Anthropic(**options,http_client=httpx.Client(transport=httpx.MockTransport(transport)))
+        with patch('magi.casper.Anthropic',side_effect=client),patch('magi.provider.time.sleep') as sleep:
+            a=Casper()
+            try:r=a.think('Synthetic question')
+            finally:a.client.close()
+        self.assertEqual(calls,[dict(connect=30,read=60,write=30,pool=30)])
+        sleep.assert_not_called()
+        self.assertEqual(r.error,'provider_unavailable:transient_failure_exhausted')
+        self.assertEqual(r.attempts,1);self.assertFalse(r.vote_eligible)
+        self.assertEqual(a.last_response_diagnostic.attempts,1)
+
+    def test_success_one_attempt(self):
+        with fake_clients() as (calls,_),patch('magi.provider.time.sleep') as sleep:
+            a=Casper();r=a.think('Synthetic question')
+            self.assertEqual(r.availability,Availability.AVAILABLE)
+            self.assertEqual(calls['Anthropic'].call_count,1);sleep.assert_not_called()
+            self.assertEqual(a.last_response_diagnostic.attempts,1)
+            self.assertIsNone(a.last_response_diagnostic.failure_category)
 
     def test_diagnostic_reset(self):
         with fake_clients() as (calls,_):
