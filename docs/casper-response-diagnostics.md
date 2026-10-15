@@ -3,7 +3,7 @@
 Phase 7F.4a is an offline compatibility change. It does not establish the cause
 of the previous live invalid JSON response or prove live compatibility.
 
-Casper uses `claude-sonnet-4-6`, `max_tokens=2000`, prompt-only JSON,
+Casper uses `claude-sonnet-4-6`, `max_tokens=3072`, prompt-only JSON,
 a 60-second read timeout, 30-second connect/write/pool timeouts, and one provider
 attempt per invocation (SDK retries disabled). No structured-output
 API option, output repair, Markdown stripping or parsing retry is enabled.
@@ -39,7 +39,7 @@ It contains only:
 
 - Fixed configured provider/model identifiers and output-token budget.
 - Allowlisted stop category, or `MISSING` / `UNKNOWN`.
-- Integer output-token usage in the configured 0–2000 range, otherwise `None`.
+- Integer output-token usage in the configured 0–3072 range, otherwise `None`.
 - Counts of allowlisted block types, with unknown/missing types aggregated.
 - A fixed failure category, or `None` on success.
 - Actual invocations of the existing SDK request callback, including shared retries.
@@ -70,8 +70,8 @@ The Phase 7F.4b controlled request returned HTTP 200, `stop_reason=max_tokens`,
 and 1000 output tokens under a 1000-token budget. This establishes exhaustion
 for that request, not the precise cause of earlier failures.
 
-The Casper-only `MAX_TOKENS` constant increases from 1000 to 2000. This is the
-initial bounded candidate requested for evaluation: the response contract asks
+At Phase 7F.4c, the Casper-only `MAX_TOKENS` constant increased from 1000 to 2000.
+This was the initial bounded candidate requested for evaluation: the response contract asks
 for detailed rationale, risks and evidence gaps inside strict JSON. The observed
 exhaustion justifies additional headroom, but does not establish a minimum
 sufficient budget or guarantee completion at 2000 tokens. Larger output can
@@ -118,3 +118,36 @@ transient failures. A client timeout does not establish server cancellation or z
 cost. A separately authorized single Casper live retest should preserve the real
 selected-context shape, record only safe timing/completion diagnostics, enforce
 one transmitted attempt, and perform no automatic policy escalation.
+
+
+## Phase 7F.4m: output ceiling of 3072
+
+Prior controlled verification recorded successful completions using 1670 and
+1991 output tokens. These established completion for those individual requests,
+not a universally sufficient budget. The Phase 7F.4l NVDA integration run then
+returned HTTP 200 with `stop_reason=max_tokens` and exactly 2000 output tokens
+under a 2000-token ceiling. Completion validation correctly rejected that response
+as `incomplete_response`; the pipeline retained UNAVAILABLE/no-vote behavior.
+
+The Casper-only ceiling now increases from 2000 to 3072. The single shared
+constant supplies the Anthropic request, diagnostic budget and accepted diagnostic
+usage range. The installed SDK recognizes `claude-sonnet-4-6` and accepts this
+integer request budget; synthetic SDK transport checks verify the serialized
+request without contacting Anthropic. Live acceptance and completion at the new
+ceiling remain unverified.
+
+The model, persona, system instructions, research/history context, strict JSON
+parsing and completion-first checks remain unchanged. Even apparently valid JSON
+with `stop_reason=max_tokens` is rejected. Read timeout remains 60 seconds;
+connect/write/pool timeouts remain 30 seconds. The application still makes at most
+one provider attempt with SDK retries disabled. No invalid-output retry, repair,
+Structured Output, parallel execution or overall analysis-time policy is added.
+
+The ceiling grows by 1072 tokens (53.6%); actual output usage is determined by the
+response and may remain below the ceiling. Additional generated tokens can increase
+latency and API cost, but the ceiling change is not a prediction of either. No
+precise cost estimate is justified without established pricing and actual usage.
+The unchanged read timeout may still be reached, and 3072 tokens does not guarantee
+completion. A separately authorized bounded Casper retest should inspect safe
+completion/usage metadata before any further integration verification. No live
+request is part of this offline adjustment.

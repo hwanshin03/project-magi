@@ -6,7 +6,7 @@ import json
 from magi.decision import _unique_object, parse_decision, unavailable_result
 
 MODEL = 'claude-sonnet-4-6'
-MAX_TOKENS = 2000
+MAX_TOKENS = 3072
 _STOPS = ('end_turn', 'max_tokens', 'stop_sequence', 'tool_use', 'pause_turn',
           'refusal', 'model_context_window_exceeded')
 _BLOCKS = ('text', 'tool_use', 'thinking', 'redacted_thinking')

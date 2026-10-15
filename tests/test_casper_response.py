@@ -43,19 +43,26 @@ class CasperResponseTests(unittest.TestCase):
         self.assertEqual(r,parse_decision(body(),'Casper','Anthropic','claude-sonnet-4-6'))
         self.assertIsNone(d.failure_category);self.assertEqual(d.content_blocks,(('text',1),))
         self.assertEqual((d.provider,d.model,d.max_tokens,d.output_tokens,d.attempts),
-                         ('Anthropic','claude-sonnet-4-6',2000,100,1))
+                         ('Anthropic','claude-sonnet-4-6',3072,100,1))
 
     def test_typed_sdk_message(self):
         m=Message(id='synthetic',role='assistant',type='message',model='claude-sonnet-4-6',
                   content=[{'type':'text','text':body()}],stop_reason='end_turn',
-                  usage={'input_tokens':10,'output_tokens':100})
-        self.assertIsNone(response_result(m,1)[1].failure_category)
+                  usage={'input_tokens':10,'output_tokens':2500})
+        result,diagnostic=response_result(m,1)
+        self.assertEqual(result.availability,Availability.AVAILABLE)
+        self.assertIsNone(diagnostic.failure_category)
+        self.assertEqual(diagnostic.output_tokens,2500)
 
     def test_max_tokens_truncated(self):
-        self.check_failure(response(body()[:-1],stop='max_tokens',tokens=2000),'incomplete_response')
+        for tokens in (2000,3072):
+            with self.subTest(tokens=tokens):
+                self.check_failure(response(body()[:-1],stop='max_tokens',tokens=tokens),'incomplete_response')
 
     def test_max_tokens_valid_json(self):
-        self.check_failure(response(stop='max_tokens',tokens=2000),'incomplete_response')
+        for tokens in (2000,3072):
+            with self.subTest(tokens=tokens):
+                self.check_failure(response(stop='max_tokens',tokens=tokens),'incomplete_response')
 
     def test_other_incomplete_stops(self):
         for stop in ('pause_turn','model_context_window_exceeded'):
@@ -123,9 +130,9 @@ class CasperResponseTests(unittest.TestCase):
         self.assertNotIn(marker,json.dumps(asdict(d)))
 
     def test_usage_validation(self):
-        for value in (None,True,-1,2001,1.5,'100'):
+        for value in (None,True,-1,3073,1.5,'100'):
             self.assertIsNone(response_result(response(tokens=value),1)[1].output_tokens)
-        for value in (0,1000,1001,2000):self.assertEqual(response_result(response(tokens=value),1)[1].output_tokens,value)
+        for value in (0,1000,1001,2000,2001,2500,3072):self.assertEqual(response_result(response(tokens=value),1)[1].output_tokens,value)
 
     def test_request_configuration_and_no_parse_retry(self):
         with fake_clients() as (calls,_),patch('magi.provider.time.sleep') as sleep:
@@ -133,7 +140,7 @@ class CasperResponseTests(unittest.TestCase):
             a=Casper();r=a.think('Synthetic question')
             kw=calls['Anthropic'].call_args.kwargs
             self.assertEqual(set(kw),{'model','max_tokens','system','messages'})
-            self.assertEqual(MAX_TOKENS,2000);self.assertEqual(kw['max_tokens'],2000);self.assertEqual(kw['model'],'claude-sonnet-4-6')
+            self.assertEqual(MAX_TOKENS,3072);self.assertEqual(kw['max_tokens'],3072);self.assertEqual(kw['model'],'claude-sonnet-4-6')
             self.assertEqual(calls['Anthropic'].call_count,1);sleep.assert_not_called()
             self.assertEqual(a.last_response_diagnostic.attempts,1);self.assertEqual(r.error,'invalid_response')
 
@@ -175,6 +182,9 @@ class CasperResponseTests(unittest.TestCase):
     def test_sdk_timeout_transport_contract(self):
         calls=[]
         def transport(request):
+            payload=json.loads(request.content)
+            self.assertEqual(payload['model'],'claude-sonnet-4-6')
+            self.assertEqual(payload['max_tokens'],3072)
             calls.append(request.extensions['timeout'])
             raise httpx.ReadTimeout('Synthetic',request=request)
         def client(**options):
