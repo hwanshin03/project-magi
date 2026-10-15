@@ -36,6 +36,12 @@ def status_error(provider, status):
     return sdk.APIStatusError('secret must not appear', response=response, body=None)
 
 
+def gemini_response(text):
+    return types.GenerateContentResponse(candidates=[types.Candidate(
+        finish_reason=types.FinishReason.STOP,
+        content=types.Content(parts=[types.Part(text=text)]))])
+
+
 @contextmanager
 def fake_clients(failed=()):
     calls = {}
@@ -52,6 +58,8 @@ def fake_clients(failed=()):
             payload = SimpleNamespace(output_text=decision, text=decision,
                                       content=[SimpleNamespace(type='text', text=decision)],
                                       stop_reason='end_turn', usage=SimpleNamespace(output_tokens=100))
+            if provider == 'Gemini':
+                payload = gemini_response(decision)
             request = Mock(return_value=payload)
             if provider in failed:
                 request.side_effect = status_error(provider, 503)

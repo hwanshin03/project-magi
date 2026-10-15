@@ -11,7 +11,7 @@ import unittest
 from test_balancing_foundation import NOW, pack, news
 from test_balancing_assessment import target, financial
 from test_balancing_selection import document, contested
-from test_resilience import fake_clients
+from test_resilience import fake_clients, gemini_response
 from test_agent_research_context import CLASSES, provider_fields
 from magi.analysis.models import AnalysisRequest, ResearchInput, AnalysisResult, AnalysisError, dumps, loads
 from magi.analysis.collection import ResearchServices
@@ -198,7 +198,7 @@ class AnalysisTests(unittest.TestCase):
             r=run(agents=[cls() for cls in CLASSES])
             self.assertEqual(r.agent_results[0].attempts,3);self.assertIsNone(r.agent_results[0].position)
         with fake_clients() as (calls,_):
-            calls['Gemini'].return_value=SimpleNamespace(text='bad JSON')
+            calls['Gemini'].return_value=gemini_response('bad JSON')
             r=run(agents=[cls() for cls in CLASSES]);self.assertEqual(r.agent_results[1].error,'invalid_response')
 
     def test_future_evidence_never_reaches_agents(self):

@@ -17,7 +17,7 @@ from magi.storage import Database
 from magi.consensus import ConsensusEngine
 from magi.decision import Availability, Position, parse_decision, unavailable_result
 from magi.voting import FinalAction, VotingEngine
-from test_resilience import fake_clients
+from test_resilience import fake_clients, gemini_response
 
 
 def results(*positions):
@@ -141,8 +141,8 @@ class VotingTests(unittest.TestCase):
     def test_cli_votes_before_explanation_and_keeps_authoritative_action(self):
         with fake_clients() as (calls, _):
             buy_json = str(results('BUY', 'BUY', 'HOLD')['Melchior'])
-            for provider in ['OpenAI', 'Gemini']:
-                calls[provider].return_value = SimpleNamespace(output_text=buy_json, text=buy_json)
+            calls['OpenAI'].return_value = SimpleNamespace(output_text=buy_json)
+            calls['Gemini'].return_value = gemini_response(buy_json)
             output = io.StringIO()
             count = 0
             def openai_request(**kwargs):

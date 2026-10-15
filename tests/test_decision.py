@@ -16,7 +16,7 @@ from magi.storage import Database
 from magi.debate import DebateEngine
 from magi.decision import (AgentResult, Availability, Position, parse_decision,
                            reconcile_result, unavailable_result)
-from test_resilience import fake_clients
+from test_resilience import fake_clients, gemini_response
 
 
 def response(position='BUY', **overrides):
@@ -158,7 +158,7 @@ class DecisionTests(unittest.TestCase):
 
     def test_invalid_output_full_application_and_no_parsing_retries(self):
         with fake_clients() as (calls, _), patch('magi.provider.time.sleep') as sleep:
-            calls['Gemini'].return_value = SimpleNamespace(text='malformed JSON')
+            calls['Gemini'].return_value = gemini_response('malformed JSON')
             output = io.StringIO()
             with patch('builtins.input', return_value='original question'), redirect_stdout(output):
                 main.main()
