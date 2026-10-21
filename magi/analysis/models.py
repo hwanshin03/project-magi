@@ -1,6 +1,8 @@
 """Immutable orchestration contracts, reusing existing identities and decisions."""
 from magi.research.validation import operation
-from dataclasses import dataclass, field, fields, replace
+from dataclasses import asdict, dataclass, field, fields, replace
+from contextlib import contextmanager
+from enum import Enum
 from datetime import datetime
 import json
 from magi.decision import AgentResult, Availability as AgentAvailability, Position
@@ -22,6 +24,49 @@ class AnalysisError(ValueError):
     def __init__(self, code):
         self.code = code
         super().__init__(code)
+
+
+class FinalizationStage(str, Enum):
+    REQUEST_VALIDATION = 'REQUEST_VALIDATION'
+    SELECTION_VALIDATION = 'SELECTION_VALIDATION'
+    AGENT_CONTENT_SAFETY = 'AGENT_CONTENT_SAFETY'
+    VOTING_VALIDATION = 'VOTING_VALIDATION'
+    EXPLANATION_VALIDATION = 'EXPLANATION_VALIDATION'
+    SEC_PROJECTION_VALIDATION = 'SEC_PROJECTION_VALIDATION'
+    ARTIFACT_FINGERPRINT = 'ARTIFACT_FINGERPRINT'
+
+
+@dataclass(frozen=True)
+class FinalizationDiagnostic:
+    stage: FinalizationStage
+    category: str = 'VALIDATION_FAILED'
+
+    def __post_init__(self):
+        if type(self.stage) is not FinalizationStage or self.category != 'VALIDATION_FAILED':
+            raise ValueError('Invalid finalization diagnostic')
+
+
+@contextmanager
+def _finalization_stage(stage):
+    try:
+        yield
+    except (ValueError, TypeError):
+        error = AnalysisError('INVALID_ANALYSIS_RESULT')
+        error.diagnostic = FinalizationDiagnostic(stage)
+        raise error from None
+
+
+def _original_strings(value):
+    """Visit original AgentResult text, including optional/nested fields and keys."""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for key, child in value.items():
+            yield from _original_strings(key)
+            yield from _original_strings(child)
+    elif isinstance(value, (tuple, list)):
+        for child in value:
+            yield from _original_strings(child)
 
 
 def checked_id(obj, name, prefix, payload):
@@ -135,41 +180,52 @@ class AnalysisResult:
 
     @operation
     def __post_init__(self):
-        if type(self.request) is not AnalysisRequest or replace(self.request)!=self.request:
-            raise ValueError('Invalid analysis request')
-        if type(self.selection) is not EvidenceSelection: raise ValueError('Invalid selection')
-        validate_container(self.selection)
-        if self.selection.assessment.grouped.universe.request != self.request.selection_request:
-            raise ValueError('Analysis request mismatch')
-        if self.selection.policy != self.request.selection_policy or self.selection.assessment.policy != self.request.assessment_policy:
-            raise ValueError('Analysis policy mismatch')
-        if not isinstance(self.agent_results,(tuple,list)) or len(self.agent_results)!=3:
-            raise ValueError('Three agent results required')
-        results={}
-        for result in self.agent_results:
-            if type(result) is not AgentResult or replace(result)!=result or result.agent in results:
-                raise ValueError('Invalid agent result')
-            safe_text(str(result)); results[result.agent]=result
-        vote=VotingEngine().vote(results)
-        object.__setattr__(self,'vote',vote)
-        object.__setattr__(self,'agent_results',vote.agent_results)
-        if self.explanation is not None: safe_text(self.explanation)
-        if self.explanation_error not in (None,'EXPLANATION_UNAVAILABLE'): raise ValueError('Invalid explanation failure')
-        if self.explanation is not None and self.explanation_error is not None: raise ValueError('Conflicting explanation state')
-        from magi.research.sec_projection import SECAnalyticalProjection, SECProjectionPolicy
-        if not isinstance(self.sec_projections,tuple) or any(type(p) is not SECAnalyticalProjection for p in self.sec_projections):
-            raise ValueError('Invalid SEC projections')
-        for p in self.sec_projections:
-            validate_container(p)
-            expected = SECProjectionPolicy(self.request.as_of,self.request.selection_request.scope,
-                self.request.report,self.request.year,published_since=self.request.assessment_policy.published_since,
-                currency=self.request.currency)
-            if p.policy != expected or not any(s.container == p.analytical_pack for s in self.universe.inputs):
-                raise ValueError('SEC projection/request mismatch')
-        payload = (self.request.request_id,self.selection.selection_id,
-            tuple(str(r) for r in self.agent_results),self.explanation,self.explanation_error)
-        if self.sec_projections: payload += (tuple(p.projection_id for p in self.sec_projections),)
-        checked_id(self,'artifact_id','AN',fingerprint(payload))
+        with _finalization_stage(FinalizationStage.REQUEST_VALIDATION):
+            if type(self.request) is not AnalysisRequest or replace(self.request)!=self.request:
+                raise ValueError('Invalid analysis request')
+        with _finalization_stage(FinalizationStage.SELECTION_VALIDATION):
+            if type(self.selection) is not EvidenceSelection: raise ValueError('Invalid selection')
+            validate_container(self.selection)
+            if self.selection.assessment.grouped.universe.request != self.request.selection_request:
+                raise ValueError('Analysis request mismatch')
+            if self.selection.policy != self.request.selection_policy or self.selection.assessment.policy != self.request.assessment_policy:
+                raise ValueError('Analysis policy mismatch')
+        with _finalization_stage(FinalizationStage.AGENT_CONTENT_SAFETY):
+            if not isinstance(self.agent_results,(tuple,list)) or len(self.agent_results)!=3:
+                raise ValueError('Three agent results required')
+            results={}
+            for result in self.agent_results:
+                if type(result) is not AgentResult or replace(result)!=result or result.agent in results:
+                    raise ValueError('Invalid agent result')
+                fingerprint(tuple(_original_strings(asdict(result))))
+                safe_text(str(result)); results[result.agent]=result
+        with _finalization_stage(FinalizationStage.VOTING_VALIDATION):
+            vote=VotingEngine().vote(results)
+            object.__setattr__(self,'vote',vote)
+            object.__setattr__(self,'agent_results',vote.agent_results)
+        with _finalization_stage(FinalizationStage.EXPLANATION_VALIDATION):
+            if self.explanation is not None: safe_text(self.explanation)
+            if self.explanation_error not in (None,'EXPLANATION_UNAVAILABLE'): raise ValueError('Invalid explanation failure')
+            if self.explanation is not None and self.explanation_error is not None: raise ValueError('Conflicting explanation state')
+        with _finalization_stage(FinalizationStage.SEC_PROJECTION_VALIDATION):
+            from magi.research.sec_projection import SECAnalyticalProjection, SECProjectionPolicy
+            if not isinstance(self.sec_projections,tuple) or any(type(p) is not SECAnalyticalProjection for p in self.sec_projections):
+                raise ValueError('Invalid SEC projections')
+            for p in self.sec_projections:
+                validate_container(p)
+                expected = SECProjectionPolicy(self.request.as_of,self.request.selection_request.scope,
+                    self.request.report,self.request.year,published_since=self.request.assessment_policy.published_since,
+                    currency=self.request.currency)
+                if p.policy != expected or not any(s.container == p.analytical_pack for s in self.universe.inputs):
+                    raise ValueError('SEC projection/request mismatch')
+        with _finalization_stage(FinalizationStage.ARTIFACT_FINGERPRINT):
+            payload = (self.request.request_id,self.selection.selection_id,
+                tuple(str(r) for r in self.agent_results),self.explanation,self.explanation_error)
+            if self.sec_projections: payload += (tuple(p.projection_id for p in self.sec_projections),)
+            # Agent strings were checked before JSON escaping. All other payload
+            # fields still pass the shared fingerprint boundary unchanged.
+            fingerprint(payload[:2] + payload[3:])
+            checked_id(self,'artifact_id','AN',identity('', 'BF', encode(payload)))
 
     @property
     def universe(self): return self.selection.assessment.grouped.universe
