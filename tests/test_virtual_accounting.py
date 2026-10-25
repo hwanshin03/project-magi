@@ -465,11 +465,13 @@ s=ledger.state(sys.argv[3]); print(json.dumps([str(s.cash),s.event_count,event.e
     def test_import_closure_contains_no_owner_broker_or_network_modules(self):
         allowed = {'dataclasses','datetime','decimal','enum','uuid','re','pathlib','contextlib','json','os','sqlite3','stat'}
         for source in (ROOT/'magi'/'virtual').glob('*.py'):
+            # Only the new pure contracts need Protocol and IANA timezone support.
+            permitted = allowed | {'typing', 'zoneinfo'} if source.name == 'execution_contracts.py' else allowed
             for node in ast.walk(ast.parse(source.read_text())):
                 if isinstance(node, ast.Import):
-                    self.assertTrue(all(a.name.split('.')[0] in allowed for a in node.names), source.name)
+                    self.assertTrue(all(a.name.split('.')[0] in permitted for a in node.names), source.name)
                 elif isinstance(node, ast.ImportFrom) and not node.level:
-                    self.assertIn(node.module.split('.')[0], allowed, source.name)
+                    self.assertIn(node.module.split('.')[0], permitted, source.name)
 
     def test_pure_reconstruction_rejects_reordered_or_cross_portfolio_events(self):
         self.fund(); self.apply(); events = self.ledger.history(self.portfolio)
