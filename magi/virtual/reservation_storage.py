@@ -40,12 +40,14 @@ def _invalid():
     raise VirtualError(ErrorCode.INVALID_LEDGER)
 
 
-def _association(connection, request):
+def _association(connection, request, *, evolved_orders=False):
+    # v4 alone reconciles later transitions/releases. The create still binds to
+    # the original ACCEPTED event; default v3 requires it to remain the only event.
     current, events = _history(connection, request.portfolio_id, request.order_id)
     first = events[0]
     command = connection.execute('SELECT * FROM virtual_order_commands WHERE operation_id=?',
                                   (request.command_id,)).fetchone()
-    if (len(events) != 1 or current.state is not OrderState.ACCEPTED
+    if ((not evolved_orders and (len(events) != 1 or current.state is not OrderState.ACCEPTED))
             or current.intent.instrument_id != request.instrument_id
             or first.event_id != request.creation_event_id or first.command_id != request.command_id
             or command is None or command['actor_id'] != request.actor_id
@@ -69,11 +71,13 @@ def _outcome(request, cash, shares):
             else ReservationCode.INSUFFICIENT_SHARES)
 
 
-def _replay(connection):
+def _replay(connection, *, evolved_orders=False):
     """One DB snapshot; full old history plus immutable operation/effect reconciliation.
 
     v3 has no ledger writer or state-operation service. Replaying recorded denials
     therefore uses the same posted ledger, never hypothetical pending proceeds.
+    The private v4 caller permits evolved order histories, but this result still
+    represents the original v3 creates/denials BEFORE any v4 release effects.
     """
     _validate_contents(connection, 2)
     instruments = tuple(row[0] for row in connection.execute(
@@ -89,7 +93,7 @@ def _replay(connection):
             for sequence, row in enumerate(connection.execute(
                     'SELECT * FROM virtual_reservation_operations WHERE portfolio_id=? ORDER BY sequence', (p,)), 1):
                 request = decode_reservation(row['request_json'])
-                _association(connection, request)
+                _association(connection, request, evolved_orders=evolved_orders)
                 code = _outcome(request, cash, shares)
                 result_id = request.reservation_id if code is ReservationCode.RESERVED else None
                 expected = (request.operation_id, request.portfolio_id, request.actor_id,
