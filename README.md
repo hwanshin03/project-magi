@@ -1,362 +1,306 @@
 # Project MAGI
 
-An AI decision-making system inspired by the MAGI System from *Neon Genesis Evangelion*.
+Project MAGI is a Python research and financial-analysis system inspired by the
+MAGI System from *Neon Genesis Evangelion*. It collects attributed evidence, prepares
+bounded research contexts for three AI agents, and computes a deterministic vote
+from their validated responses.
 
-Project MAGI combines multiple state-of-the-art large language models into a collaborative decision-making system. Instead of relying on a single AI, multiple agents analyze the same problem, debate with one another, and produce a final consensus.
+The repository also contains owner-oriented portfolio tools and an isolated virtual
+accounting/order-persistence foundation. The proposed closed-Beta paper-trading
+platform is **not ready for user orders or deployment**. Project MAGI remains the
+internal project name; MOIRAI is a proposed public-facing brand candidate.
 
----
+## Research and analysis
 
-# AI Members
+The implemented analysis pipeline coordinates existing components in memory:
 
-### 🧠 Melchior
-- Model: OpenAI GPT-5.5
-- Role: Logic & Analytical Reasoning
-
-### 📊 Balthasar
-- Model: Google Gemini
-- Role: Market Data & Trend Analysis
-
-### ⚖️ Casper
-- Model: Anthropic Claude
-- Role: Risk Assessment & Conservative Judgment
-
----
-
-# Current Architecture
-
-```
-                User Question
-                      │
-                      ▼
-      ┌─────────────────────────────────┐
-      │      Initial Responses          │
-      └─────────────────────────────────┘
-          │        │              │
-          ▼        ▼              ▼
-     Melchior   Balthasar      Casper
-          │        │              │
-          └────────┴──────────────┘
-                     │
-                     ▼
-             Debate Engine
-          (Multiple Discussion Rounds)
-                     │
-                     ▼
-            Consensus Engine
-                     │
-                     ▼
-              Final Decision
+```text
+Explicit target, question and as_of
+    -> requested research collection / supplied normalized evidence
+    -> evidence universe and availability manifest
+    -> deterministic grouping, relevance and analytical attention
+    -> bounded evidence selection and agent-specific ordering
+    -> Melchior / Balthasar / Casper
+    -> validated AgentResults -> deterministic VotingResult
+    -> immutable AnalysisResult and optional explanation
 ```
 
----
+Collection supports SEC, OpenDART, company financial snapshots, company sources,
+news and regulatory channels. Optional source failures remain explicit coverage
+gaps; a required channel with missing records or known collection gaps stops the
+analysis before agent calls. The Python API requires explicit agents and accepts
+supplied evidence or injected research services; it never creates live clients
+implicitly. The CLI has a separate opt-in live path.
 
-# Current Features
+`AnalysisResult` retains normalized inputs, citations, availability, omissions,
+policies, selection lineage and agent results. Explicit JSON export/import validates
+content-derived identities and recomputes the vote. Research selection is deterministic
+for the same inputs and policies; live model responses are not deterministic.
+The orchestration API does not automatically save research or results to a database.
+See [analysis orchestration](docs/analysis-orchestration.md) and
+[finalization safety](docs/analysis-finalization-safety.md).
 
-- ✅ OpenAI API integration
-- ✅ Google Gemini API integration
-- ✅ Anthropic Claude API integration
-- ✅ Three independent AI agents
-- ✅ Multi-round debate engine
-- ✅ Consensus generation
-- ✅ Modular architecture
-- ✅ Secure API key management (.env)
+### Three-agent architecture
 
----
+These are the provider/model identifiers currently configured in the code:
 
-# Example Workflow
+| Agent | Provider / configured model | Perspective |
+| --- | --- | --- |
+| Melchior | OpenAI / `gpt-5.5` | Logic, valuation, earnings quality and long-term fundamentals |
+| Balthasar | Google Gemini / `gemini-2.5-flash` | Market trends, macro conditions, sentiment and industry developments |
+| Casper | Anthropic / `claude-sonnet-4-6` | Downside scenarios, risk management and capital protection |
 
+Agents return structured positions, confidence, rationale, risks and evidence gaps.
+Positions include STRONG_BUY, BUY, HOLD, SELL, STRONG_SELL and ABSTAIN. Availability
+is AVAILABLE, STALE or UNAVAILABLE; a failed request never becomes an invented HOLD.
+Balthasar and Casper additionally validate provider completion/content metadata and
+retain bounded diagnostics without raw response text. HTTP 200 alone does not prove
+that a usable decision was returned.
+Response validation checks structure and completion, not factual correctness.
+
+[VotingEngine](magi/voting.py) uses an unweighted, fixed two-of-three rule:
+
+- Only AVAILABLE, non-ABSTAIN responses vote; confidence does not change vote weight.
+- STRONG_BUY/BUY share the BUY category; STRONG_SELL/SELL share SELL; HOLD is separate.
+- Two agreeing votes produce BUY_APPROVED, SELL_APPROVED or HOLD.
+- Fewer than two eligible voters produce INSUFFICIENT_PARTICIPATION; otherwise a
+  split without two agreeing votes produces NO_CONSENSUS.
+
+An LLM explanation cannot override that result. These are analytical outputs, not
+order authorization or brokerage instructions.
+
+The legacy interactive workflow (`python main.py` with no arguments) runs initial
+responses, three debate rounds, deterministic voting and an explanation. It uses
+local historical analysis memory and can write to `data/magi.db`. The research-aware
+`analyze` path coordinates collection and one response per agent; it does not add
+debate rounds or automatic memory persistence. The Python debate API can receive an
+explicit research selection. See [agent context integration](docs/agent-research-context.md).
+
+### Evidence pipeline
+
+| Capability | Implemented behavior and important limits |
+| --- | --- |
+| Identity and provenance | Instrument market/symbol, issuer namespace/ID and provider symbols remain separate. Explicit mappings and citations preserve attribution; UUIDs and fingerprints do not establish trust or access rights. |
+| Official financial evidence | SEC EDGAR submissions/company facts and OpenDART disclosures/statements normalize filing identities, periods, units and Decimal values. SEC is not a complete custom/dimensional-XBRL parser; DART requires explicit year/report choices and has bounded pagination. |
+| Financial snapshots | Deterministic metrics, comparable-period growth and margins retain their cited inputs. Missing, conflicting or incomparable values remain explicit; missing amounts do not become zero. |
+| SEC analytical projection | Keeps the normalized historical catalog while selecting relevant comparable periods and preserving revisions with an exclusion audit. It does not take arbitrary first-N or latest-N facts. |
+| News and regulatory evidence | Attributed items, explicit event metadata, bounded excerpts, language and legal/publication status remain distinct from investment interpretation. Provider sentiment is metadata, not a recommendation. |
+| Balanced selection | Qualified references, lineage, deterministic grouping, target relevance, analytical-attention categories, diversity constraints, hard budgets and omission/disagreement audits feed a shared core with agent-specific ordering. |
+| Temporal eligibility | Explicit `as_of` uses public-availability rules, preserves retrieval provenance and date-only ambiguity, and excludes future-public evidence. Historical reconstruction is limited by available source metadata. |
+| Agent contexts and serialization | Bounded selected evidence and provenance are separate from trusted instructions and historical memory. Tagged JSON snapshots support validated round trips; source text remains untrusted data. |
+
+Repeated reports or translations do not automatically establish independent
+corroboration. PRIMARY describes first-party provenance, not truth, investment
+importance or voting weight. Some summaries support Korean/English presentation;
+original source language is preserved. There is no general automatic translation
+or semantic-LLM evidence-selection layer.
+
+Standalone market data is separate: the analysis pipeline's market-provenance bridge
+remains deferred. Quotes, adjusted candles and research evidence are not trusted
+virtual execution prices.
+
+### Source coverage and historical live checks
+
+Adapter implementation, synthetic offline tests, bounded historical live checks and
+operational readiness are different statuses. Sources can be empty, unavailable or
+partially collected; support is not uniform across companies or endpoints.
+
+| Source area | Current support / verification boundary |
+| --- | --- |
+| SEC / OpenDART financial adapters | Implemented with synthetic fixture coverage and explicit financial/reporting limits. This is not universal issuer coverage or a guarantee that every endpoint/query is available. |
+| Marketaux news | Implemented; bounded historical live verification covered NVDA/US and Samsung Electronics 005930/KR. Korean-language coverage was not established by that sample. Internal `005930` remains distinct from provider symbol `005930.KS`. |
+| NVIDIA News RSS / Samsung Korea Newsroom RSS | Historically LIVE VERIFIED for accepted items. Unsupported item hosts are skipped, so successful ingestion does not imply complete feed coverage. |
+| Samsung Global Newsroom RSS | Historically LIVE PARTIAL; an unsafe canonical URL was skipped without weakening URL security. |
+| NVIDIA IR / Samsung IR earnings / Samsung announcement HTML | Offline-implemented parsing contracts, LIVE-UNVERIFIED; these are not live-supported sources. |
+| BIS / SEC Regulatory / Korean FSC | Historically LIVE VERIFIED through bounded RegulatoryBundle checks. Optional legal/effective-date and relationship metadata can remain absent. |
+
+The company-source adapters currently cover NVIDIA and Samsung Electronics, not a
+universal IR crawler. Bounded excerpts and normalized provenance do not constitute
+an article-body archive or blanket redistribution permission. Data licensing,
+provider availability and agent validity require ongoing review; a historical
+success does not certify production reliability or complete end-to-end coverage.
+
+See [official financial adapters](docs/official-research-adapters.md),
+[financial snapshots](docs/company-research-snapshot.md),
+[Marketaux](docs/marketaux-news.md), its [live-verification record](docs/marketaux-live-verification.md),
+[official company sources](docs/official-company-sources.md) and
+[regulatory sources](docs/regulatory-research-sources.md).
+
+## Owner-oriented portfolio and data tools
+
+These existing tools are separate from the virtual Beta subsystem:
+
+- Local analysis memory and an account-aware historical portfolio ledger support
+  manual BUY/SELL bookkeeping, explicit opening balances, weighted-average cost
+  basis and realized P&L. Opening balances do not invent unknown historical trades.
+- Opt-in Toss adapters provide quotes, candles, FX, read-only account/holding
+  visibility and reconciliation. Brokerage order execution is not implemented;
+  Toss cash-balance retrieval is explicitly unsupported.
+- Position valuation supports stale/missing-data reporting, native-currency totals
+  and optional FX display. It is not complete virtual portfolio equity accounting.
+
+CLI families are `portfolio`, `market`, `broker` and `research`, dispatched by
+[main.py](main.py). Some commands call live APIs; bookkeeping and explicit position
+imports can write the owner's local ledger. They are not Beta entry points.
+Command details: [local memory](docs/memory-portfolio.md), [portfolio CLI](docs/portfolio-cli.md),
+[account-aware ledger](docs/account-aware-portfolio.md),
+[opening balances](docs/opening-balances.md), [market data](docs/market-data.md),
+[broker visibility](docs/broker-read-only.md) and [portfolio valuation](docs/live-portfolio.md).
+
+## Virtual accounting and paper-trading status
+
+| Milestone | Implemented internal capability | Boundary |
+| --- | --- | --- |
+| Phase 8.2 | Explicit-path isolated SQLite ledger, one-time funding, Decimal-safe cash and BUY/SELL accounting, weighted-average basis, realized P&L, durable fill idempotency and deterministic replay | Synthetic/internal accounting inputs; no trusted trade-execution service |
+| Phase 8.3b | Immutable provider-neutral price/source claims, distinct event/provider-observation/retrieval times, price categories, official/finality metadata, synthetic calendar and timezone/DST validation | No approved price provider, operational exchange calendar or execution authority |
+| Phase 8.3c | Pure deterministic session selection, explicit cutoff/deadline policy, immutable order intents and cancellation/expiration/terminal-state validation | Synthetic contracts; FILLED is blocked. Five minutes is not an approved operational default |
+| Phase 8.3d.1 Package A | Explicit virtual v1-to-v2 schema migration, strict codecs, immutable order/command/event structures, scoped read/replay and rollback/integrity checks | No order-admission or state-write API, active reservations or settlement |
+
+**Legacy virtual v1 clients intentionally reject migrated v2 databases.** The new
+persistence layer provides v2 reads/replay, not continued v1 writing support. Migration
+requires an explicit trusted internal operation; imports and reads never auto-migrate.
+
+The virtual package requires an explicit isolated database path outside the checkout
+and has no owner-database fallback or broker dependency. These code boundaries do
+not establish a deployed security perimeter. The closed Beta still requires a
+separate environment, database, credentials and authenticated user/team authorization;
+owner databases, credentials and brokerage capabilities must remain outside it.
+
+## Repository map
+
+```text
+main.py                         CLI dispatch and legacy interactive workflow
+prompts/                        Agent personas
+magi/{melchior,balthasar,casper}.py  Provider-backed agents
+magi/{decision,debate,voting,consensus}.py  Results, debate, voting and explanation
+magi/analysis/                  Research-to-agent orchestration and result artifacts
+magi/research/                  Financial/news/company/regulatory evidence and balancing
+magi/{memory,portfolio,accounts}.py  Owner memory and historical bookkeeping
+magi/market/ and magi/broker/    Opt-in data and read-only broker tools
+magi/virtual/                   Isolated accounting, contracts and persistence foundation
+tests/                         Offline tests and synthetic fixtures
+docs/                          Architecture, implementation and verification records
 ```
-Question
 
-↓
+## Development setup
 
-Melchior Response
-
-↓
-
-Balthasar Response
-
-↓
-
-Casper Response
-
-↓
-
-Debate Round 1
-
-↓
-
-Debate Round 2
-
-↓
-
-Debate Round 3
-
-↓
-
-Final Consensus
-```
-
----
-
-# Example Question
-
-```
-Should I buy more SK Hynix at the current valuation for a 5-year investment?
-```
-
-The system generates:
-
-- Initial independent opinions
-- Multi-round debate
-- Revised arguments
-- Final consensus
-
----
-
-# Repository Structure
-
-```
-Project MAGI
-
-magi/
-    melchior.py
-    balthasar.py
-    casper.py
-    debate.py
-    consensus.py
-
-tests/
-    test_openai.py
-    test_gemini.py
-    test_claude.py
-
-main.py
-README.md
-requirements.txt
-```
-
----
-
-# Roadmap
-
-## Version 1.3
-
-- Persona specialization
-- Better prompt engineering
-- Improved debate quality
-
-## Version 1.4
-
-- Memory system
-- Persistent conversation history
-- User preference learning
-
-## Version 2.0
-
-- Real-time stock prices
-- Financial statement analysis
-- News integration
-- Economic indicators
-
-## Version 3.0
-
-- Portfolio management
-- Buy / Hold / Sell recommendations
-- Confidence scoring
-- Risk scoring
-
-## Future Vision
-
-- Web application
-- Desktop application
-- Voice interaction
-- Multi-user support
-- Cloud deployment
-- Autonomous investment assistant
-
----
-
-# Technology Stack
-
-- Python
-- OpenAI API
-- Google Gemini API
-- Anthropic Claude API
-- Git
-- GitHub
-- VS Code
-
----
-
-# Status
-
-Current Version:
-
-**v1.2**
-
-Completed:
-
-- OpenAI Integration
-- Gemini Integration
-- Claude Integration
-- Debate Engine
-- Consensus Engine
-
-Project Status:
-
-**Actively under development**
-## Local memory and portfolio ledger
-
-Completed analyses now append to the local SQLite database at `data/magi.db`.
-MAGI retrieves up to three recent matching analyses as untrusted historical context;
-its final action still comes exclusively from fresh deterministic two-of-three voting.
-Storage failures do not invalidate that action.
-
-A Python portfolio service records manually supplied BUY/SELL transactions and derives
-holdings, weighted-average book cost, and realized/unrealized analytics with Decimal.
-It does not execute trades or fetch market prices. This is not tax-lot accounting.
-
-See [the memory and portfolio guide](docs/memory-portfolio.md) for the complete schema,
-service examples, accounting definitions, security boundaries, and offline test command.
-
-## Portfolio CLI
-
-Record trades that already occurred and inspect the local ledger:
+Use a Python 3.12 interpreter; the recorded validation environment uses Python
+3.12.14. The repository does not yet declare a formal supported-version matrix.
+Check `python3 --version` first: the operating system's default Python may be older.
+The fresh-checkout commands below assume `python3` resolves to Python 3.12:
 
 ```sh
-python main.py portfolio buy NVDA 10 180 --currency USD --market US
-python main.py portfolio sell NVDA 4 210 --market US
-python main.py portfolio show NVDA --market US --current-price 202.50
-python main.py portfolio list
-python main.py portfolio history NVDA --market US
-python main.py portfolio recent --limit 20
+python3 --version
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
 ```
 
-These are bookkeeping commands, not order execution. Prices are never fetched.
-Currency defaults to USD; markets are not inferred. Running `python main.py` without
-arguments still starts the normal MAGI analysis workflow.
+[requirements.txt](requirements.txt) pins the runtime SDKs and HTTP/configuration
+libraries. Pure virtual tests and the offline analysis plan need no API keys.
+Live features use only the relevant configuration:
 
-See the [Portfolio CLI guide](docs/portfolio-cli.md) for complete options, examples,
-analysis-run linking, and error behavior.
+| Feature | Environment variables |
+| --- | --- |
+| Model-backed analysis | `OPENAI_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY` |
+| SEC financial research | `SEC_USER_AGENT` — application/contact identification, not an API key |
+| OpenDART research | `OPENDART_API_KEY` |
+| Marketaux news | `MARKETAUX_API_TOKEN` |
+| Toss market/broker visibility | `TOSS_CLIENT_ID`, `TOSS_CLIENT_SECRET` |
 
-## Read-only market data (Phase 6A)
+[.env.example](.env.example) contains empty placeholders. Supply values through the
+local environment or an untracked `.env`; do not overwrite existing configuration,
+commit secrets, copy an owner database or put credentials in source code. Some
+legacy imports and persistence-content validation read local configuration, so use
+a credential-free environment for isolated development checks.
 
-An opt-in provider-independent market layer supports Toss US/Korean quotes, daily
-and one-minute candles, and directional USD/KRW FX. Set `TOSS_CLIENT_ID` and
-`TOSS_CLIENT_SECRET` in your environment or local `.env`; never commit their values.
+### Offline analysis plan
 
 ```sh
-python main.py market quote NVDA --market US
-python main.py market quote 005930 --market KR
-python main.py market fx USD KRW
-python main.py market history NVDA --market US --days 30
-python main.py market candles NVDA --market US --interval 1m
+python main.py analyze NVDA --market US --question "Review evidence and risks"
 ```
 
-These commands make live read-only requests. Normal analysis and portfolio commands
-retain their existing behavior. No accounts or orders are accessed. See
-[market data documentation](docs/market-data.md) for schemas, cache/staleness,
-optional portfolio valuation, offline tests, and first-request review notes.
+Without `--execute`, this prints OFFLINE_PLAN without research/model API calls or
+database creation. Add an explicit timezone-aware `--as-of` for a reproducible cutoff;
+otherwise the CLI records its start time. Default channels are company, news and
+regulatory; the existing `--family` options select other supported channels.
+`--execute` is the explicit live-analysis opt-in and may consume API quota. It does
+not submit trades. Running `python main.py` with no arguments starts the live-capable
+legacy interactive workflow described above.
 
-## Broker read-only visibility (Phase 6B)
+## Testing
 
-An opt-in broker layer separates current external holdings from MAGI's historical
-transaction ledger. It reuses Toss OAuth and never imports transactions or trades.
+From an activated development environment, run the focused persistence suite:
 
 ```sh
-python main.py broker accounts
-python main.py broker holdings --account 1
-python main.py broker summary --account 1
-python main.py broker reconcile --account 1
-python main.py broker balances
+python -m unittest discover -s tests -p 'test_virtual_order_persistence.py'
 ```
 
-Accounts use masked numbered selectors. Reconciliation reads the existing ledger
-without modifying it. USD/KRW values remain separate; Toss cash balances are explicitly
-unsupported because no suitable non-order endpoint is exposed. These commands are
-manual live operations except the unsupported Toss balances command and help.
-See [Broker read-only guide](docs/broker-read-only.md) for privacy, schema, reconciliation,
-shared-token usage, limitations, and first-live-test preparation.
+It uses synthetic orders and temporary virtual databases, including v1 accounting
+fixtures for migration-preservation checks. Importing `tests/test_openai.py`,
+`tests/test_gemini.py` or `tests/test_claude.py` does not run their manual API examples;
+executing those files as scripts can call live models.
 
-## Account-aware ledger (Phase 6C)
+The broader suite covers providers through synthetic fixtures/MockTransport, agent
+validation/voting, owner accounting and virtual storage. Full regression should use
+an empty credential environment, temporary-only databases and real-network denial
+guards. Existing mock Toss fixtures are test-only; they do not authorize real broker
+initialization. Pytest tooling is separate from the pinned runtime requirements.
 
-Portfolio transactions now include broker/account identity. Schema v1 migrates
-transactionally to v2, retaining existing trades as MANUAL/DEFAULT. Positions and
-reconciliation stay account-scoped; optional unified Python views preserve account
-breakdowns and native currencies. `portfolio accounts`, `--broker`, `--account`, and
-`list --all-accounts` expose local account views. No automatic import or trading is
-implemented. See the [account-aware portfolio guide](docs/account-aware-portfolio.md).
+The latest recorded full offline regression is Phase 8.3d.1: **1,563 tests and 1,176
+subtests passed** in pytest/unrestricted discovery; unittest passed the same test
+count. Syntax checks covered 162 files, imports covered 121 MAGI modules, and dependency
+checks passed. These are historical results, not a full-suite rerun for this README
+update. See the [validation record](docs/virtual-order-persistence.md#package-a-validation-record).
 
-## Explicit opening balances (Phase 6D)
+## Current limitations and safety boundaries
 
-Schema v3 adds append-only OPENING_BALANCE events for positions whose earlier trades
-are unknown. `broker import-preview` is read-only; `broker import-position SYMBOL
---account SAFE_REF --confirm` explicitly initializes one local account-scoped position.
-Original purchase dates, fees and historical BUYs are never invented. Existing broker
-requests remain read-only; no order endpoint or automatic import is added.
-See the [opening-balance guide](docs/opening-balances.md) for migration, accounting,
-confirmation, duplicate protection and the manual-history alternative.
+- No authenticated Beta users, team-membership authorization, trusted admission or
+  durable user-facing order-submission service.
+- No active cash/share reservations, atomic order/reservation operations or settlement.
+- No approved trusted execution-price verifier, operational exchange-calendar authority,
+  cleared execution-data licensing or automatic virtual fills.
+- No virtual corporate-action processing, complete cash/holdings/dividend equity
+  valuation, competition operations or production recovery commitments.
+- No Research Library UI, web frontend or public Beta deployment.
+- No semantic-LLM evidence assistance, Daily Picks or five-day forecast. Evidence
+  coverage and model output remain fallible; an agent can abstain or be unavailable.
 
-### Live portfolio valuation
+Research text, official-source labels and model opinions do not authorize financial
+writes. Structural context separation reduces instruction confusion but does not
+prove prompt-injection immunity. Credentials and private account data must stay out
+of shared artifacts, logs and future Beta environments.
 
-Phase 6E adds `python main.py portfolio live` with English/Korean display, native
-currency totals, optional USD/KRW conversion, and read-only broker reconciliation.
-See [live portfolio documentation](docs/live-portfolio.md) for syntax, history
-semantics, stale-data behavior, and presentation-only dust thresholds.
+## Closed-Beta roadmap
 
-### Research evidence foundation
+| Area | Status / next dependency |
+| --- | --- |
+| Research, evidence selection and three-agent orchestration | Implemented; source coverage and live operational reliability remain limited |
+| Isolated virtual accounting, pure contracts/lifecycle and Package A persistence | Implemented internally; not deployed as a trading product |
+| Package B cash/share reservations | Proposed next implementation milestone; requires separate approval and a versioned schema extension |
+| Atomic state/reservation integration and restart reconciliation | Planned after durable reservations, with concurrency/crash tests |
+| Trusted settlement | Blocked on price/calendar/time authority, authorization and atomic accounting integration |
+| Authentication, team access and research/report interface | Proposed; requires scoped persistence and owner/Beta isolation |
+| Closed-Beta operations and deployment | Proposed; requires security/concurrency review, recovery commitments and explicit release approval |
 
-Phase 7A adds offline, immutable research sources, evidence, claims, citation
-validation, bounded views, and versioned JSON snapshots. It does not fetch research
-or change agent decisions. See [research foundation](docs/research-foundation.md).
+No delivery dates or launch commitment are implied by this roadmap.
 
-### Official research adapters
+## Architecture documentation
 
-Phase 7B adds explicit SEC EDGAR and OpenDART research commands, official filing
-citations and Decimal-safe financial evidence. Agents are not connected to these
-sources yet. See [official adapter documentation](docs/official-research-adapters.md)
-for configuration, commands, retry behavior, offline fixtures and known limits.
+Phase documents record their own milestone boundaries; some older status paragraphs
+predate later integration. This overview reflects the current committed interfaces.
+Historical live-verification records describe bounded observations, not continuous
+provider certification.
 
-### Deterministic company snapshots
-
-Phase 7C selects citation-backed financial metrics from official EvidencePacks,
-calculates comparable growth and margins with Decimal, and renders compact Korean
-or English summaries. It adds no LLM interpretation or persistence. See
-[company research snapshots](docs/company-research-snapshot.md) for policies and CLI examples.
-
-### Offline news evidence foundation
-
-Phase 7D adds provider-neutral news articles, attributed evidence, events, catalysts,
-duplicate/event groups, bounded views and Korean/English presentation. It includes
-synthetic offline fixtures only; no live news provider, agent connection or news
-persistence is enabled. See [news evidence foundation](docs/news-evidence-foundation.md).
-
-### Marketaux live-news adapter (Phase 7D.1)
-
-An explicitly invoked Marketaux adapter resolves provider entities and builds
-bounded, attributed news evidence packs. It has no agent or portfolio integration.
-Implementation tests use synthetic offline fixtures; live verification requires
-separate authorization. See the [Marketaux news guide](docs/marketaux-news.md)
-for commands, token handling, US/Korean mapping, limits, and licensing review.
-
-### Official company IR and newsroom sources (Phase 7D.2)
-
-Offline-tested NVIDIA and Samsung Electronics ingestion preserves first-party provenance,
-internal `NVDA / US` and `005930 / KR` identity, original Korean/English text, explicit
-translation families and conservative event metadata. No agents, investment recommendations
-or database persistence are connected. NVIDIA News RSS and Samsung Korea Newsroom RSS
-are **LIVE VERIFIED**; Samsung Global Newsroom RSS is **LIVE PARTIAL** (49/50 items,
-with one unsafe URL correctly skipped). NVIDIA IR, Samsung IR earnings, and Samsung
-announcement pages are **OFFLINE-IMPLEMENTED / LIVE-UNVERIFIED**, not live supported.
-See [architecture, exact source status, security policy and remaining verification](docs/official-company-sources.md).
-
-### Government and regulatory sources (Phase 7D.3)
-
-Government research ingestion covers BIS and SEC regulatory publications through
-Federal Register JSON and Korean FSC RSS. Immutable records preserve legal status,
-publication/effective dates, attributed evidence and explicit version relationships.
-Government publications are one source family, without analytical weighting or agent
-integration. Controlled live verification passed: BIS **20/20**, SEC Regulatory
-**20/20**, and FSC **10/10**, including BIS C1 identifiers and FSC Dublin Core dates.
-See [regulatory source architecture and verification limits](docs/regulatory-research-sources.md).
+- Research: [foundation](docs/research-foundation.md),
+  [SEC projection](docs/sec-analytical-projection.md),
+  [temporal eligibility](docs/temporal-eligibility.md),
+  [evidence selection/views](docs/evidence-selection-views.md) and
+  [agent context](docs/agent-research-context.md).
+- Closed Beta: [architecture and isolation](docs/beta-paper-trading-architecture.md).
+- Virtual accounting: [Phase 8.2 core](docs/virtual-accounting-core.md).
+- Price/calendar: [proposed execution policy](docs/virtual-execution-price-policy.md)
+  and [implemented contracts](docs/virtual-execution-contracts.md).
+- Orders: [pure lifecycle](docs/virtual-order-lifecycle.md),
+  [reservation/atomicity design](docs/virtual-order-reservations-design.md) and
+  [Package A persistence](docs/virtual-order-persistence.md).
