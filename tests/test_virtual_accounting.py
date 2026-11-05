@@ -467,6 +467,8 @@ s=ledger.state(sys.argv[3]); print(json.dumps([str(s.cash),s.event_count,event.e
         for source in (ROOT/'magi'/'virtual').glob('*.py'):
             # Only the new pure contracts need Protocol and IANA timezone support.
             permitted = allowed | {'typing', 'zoneinfo'} if source.name == 'execution_contracts.py' else allowed
+            if source == ROOT / 'magi' / 'virtual' / 'backup.py':
+                permitted = permitted | {'hashlib'}
             for node in ast.walk(ast.parse(source.read_text())):
                 if isinstance(node, ast.Import):
                     self.assertTrue(all(a.name.split('.')[0] in permitted for a in node.names), source.name)
