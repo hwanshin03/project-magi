@@ -3,6 +3,9 @@ import argparse
 from contextlib import ExitStack
 from datetime import datetime, timezone
 import json
+import os
+from pathlib import Path
+import re
 import sys
 from magi.research.balancing.models import InstrumentIdentity, TargetIdentity, EntityIdentity
 from magi.research.serialization import encode
@@ -64,8 +67,19 @@ def main(argv=None, *, services=None, agents=None, now=None):
     parser.add_argument('--currency')
     parser.add_argument('--limit',type=int,default=20)
     parser.add_argument('--execute',action='store_true',help='Explicitly call research and model APIs; may consume quota')
+    parser.add_argument('--format',choices=('audit','markdown'),default='audit',help='Readable Markdown report or existing JSON audit')
+    parser.add_argument('--output',help='Explicit new .md report file; requires --execute --format markdown; never overwrites')
     args=parser.parse_args(argv)
     try:
+        pattern = r'[A-Z][A-Z0-9.-]{0,15}' if args.market == 'US' else r'[0-9][0-9A-Z]{5}'
+        if not re.fullmatch(pattern, args.symbol):
+            raise AnalysisError('INVALID_MARKET_TICKER')
+        output = Path(args.output) if args.output else None
+        if output is not None:
+            if not args.execute or args.format != 'markdown' or output.suffix != '.md':
+                raise AnalysisError('INVALID_REPORT_EXPORT_OPTIONS')
+            if output.exists() or output.is_symlink() or not output.parent.is_dir():
+                raise AnalysisError('REPORT_DESTINATION_UNAVAILABLE')
         target=TargetIdentity(InstrumentIdentity(args.market,args.symbol),
             EntityIdentity('SEC' if args.market=='US' else 'DART',args.issuer) if args.issuer else None,
             'explicit-cli-input' if args.issuer else None,args.mapping_reference)
@@ -91,7 +105,22 @@ def main(argv=None, *, services=None, agents=None, now=None):
                     agent=cls(); agents.append(agent)
                     close=getattr(agent.client,'close',None)
                     if callable(close): stack.callback(close)
+            if args.format == 'markdown':
+                print('Collecting requested research and running three agents; waiting for deterministic consensus.',file=sys.stderr)
             result=analyze(request,services=services,agents=agents)
+            if args.format == 'markdown':
+                from .presentation import render_report
+                report = render_report(result)
+                if output is not None:
+                    try:
+                        # Exclusive creation also rejects a symlink or a raced-in destination.
+                        fd = os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                        with os.fdopen(fd, 'w', encoding='utf-8') as stream:
+                            stream.write(report)
+                    except OSError:
+                        raise AnalysisError('REPORT_EXPORT_FAILED') from None
+                print(report, end='')
+                return 0
             # Compact audit output. Full lossless export is an explicit Python API.
             print(json.dumps({'artifact_id':result.artifact_id,'request_id':request.request_id,
                 'target':encode(request.target),'as_of':request.as_of.isoformat(),
