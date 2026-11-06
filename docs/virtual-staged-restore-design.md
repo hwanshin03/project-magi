@@ -1,0 +1,723 @@
+# Phase 8.3d.4d — Isolated staged restore and recovery verification design
+
+## 1. Executive summary and status
+
+**PROPOSED — DESIGN ONLY.** Reviewed baseline is `main` at
+`eaf5fc0a551b5cbc2c59b7d170322743544b684b`, the committed Package D2.
+This document is the only change. It implements no staging, restoration, activation,
+schema, test, financial operation or deployment capability.
+
+Recommend one small internal D3 facility that verifies a completed synthetic D2
+bundle, creates an independent byte-preserving copy in a new private staging
+workspace, and verifies that candidate through the unchanged D2 verifier. The
+candidate retains an exact copy of the original canonical manifest. Its directory
+name retains the original backup ID, allowing the existing verifier to apply all
+its checks without a new hash implementation or import-policy exception.
+
+The strongest proposed outcome is **LOCALLY_VALIDATED_CANDIDATE**. It means only
+that this isolated candidate passed artifact consistency and complete applicable
+D1 local reconciliation at observation. Acknowledgment completeness remains
+**UNVERIFIED**. It is ineligible for activation. No operational restoration, RPO,
+RTO, production authority or Beta readiness is established.
+
+Status vocabulary used throughout:
+
+| Label | Meaning |
+| --- | --- |
+| IMPLEMENTED | Directly supported by inspected committed code, not a new runtime claim from this task |
+| PROPOSED | D3 behavior specified here, requiring separate implementation approval and tests |
+| CONDITIONAL | Requires future authority, operational controls or evidence beyond synthetic D3 |
+| UNVERIFIED | Evidence is absent; never a success substitute |
+
+Project MAGI remains the internal name. MOIRAI remains a proposed public brand.
+
+## 2. Implemented foundation and review basis
+
+Reviewed the complete relevant architecture documents: [recovery design](virtual-recovery-reconciliation-design.md),
+[D1 diagnostics](virtual-recovery-diagnostics.md), [D2 backup validation](virtual-backup-validation.md),
+[Beta architecture](beta-paper-trading-architecture.md), [accounting](virtual-accounting-core.md),
+[order persistence](virtual-order-persistence.md), [reservations](virtual-order-reservations.md),
+and [atomic transitions](virtual-order-atomic-transitions.md). Their historical
+milestone statements do not override current source or authorize additional work.
+
+Inspected [diagnostics.py](../magi/virtual/diagnostics.py),
+[backup.py](../magi/virtual/backup.py), [storage.py](../magi/virtual/storage.py),
+[order_storage.py](../magi/virtual/order_storage.py),
+[reservation_storage.py](../magi/virtual/reservation_storage.py),
+[transition_storage.py](../magi/virtual/transition_storage.py), and the four committed
+SQL schemas. Reviewed permanent D1/D2 tests, the accounting import-policy test and
+the linked accounting/order/reservation/transition contracts and fixture patterns.
+
+IMPLEMENTED D1 uses one read-only, query-only SQLite transaction, establishes the
+snapshot by reading the catalog, recognizes exact v1–v4 schemas, checks physical
+integrity and foreign keys, and invokes complete existing business replay. Its
+frozen `Diagnostic` has ordered checks and fixed codes. HEALTHY is local only.
+Acknowledgment status is always UNVERIFIED. D1 creates no missing database.
+
+IMPLEMENTED D2 creates consistent SQLite backup snapshots of trusted synthetic
+fixtures. Completed artifacts are bounded to 64 MiB, independently verified using
+SHA-256 and complete D1 diagnostics, with a strict canonical manifest. Supported
+configuration is private local storage, ordinary SQLite locking, DELETE journal
+mode and no sidecars. Publication and filesystem durability have documented limits.
+
+No D3 service, candidate status, activation service, external receipt journal,
+recovery generation or operational writer fence exists at this baseline.
+
+## 3. Scope and explicit non-goals
+
+PROPOSED scope is synthetic bundle verification, exclusive isolated staging,
+independent candidate construction, complete post-copy verification, immutable
+safe results and bounded ownership-aware failure handling.
+
+Excluded are live production restoration, active database replacement, activation,
+writer restart/resumption, configuration changes, recovery-generation mutation,
+operator fencing, authentication, receipt journals/outboxes, automatic migrations,
+financial-history repair, reconstructed commands, artificial releases, admission,
+fills, settlement, public endpoints, user controls, background workers, cloud
+storage, deployment and frontend work. D3 does not combine with D4.
+
+There is no source database input to D3. No `VirtualLedger` constructor, migration,
+reservation or transition writer is called by staging or candidate validation.
+
+## 4. Synthetic trust boundary and distinct objects
+
+| Object | Role and permitted D3 access |
+| --- | --- |
+| A — Original source virtual database | Generated by trusted fixtures before D2; D3 neither opens it nor requires it to exist |
+| B — Completed D2 backup bundle | Read-only input artifact and canonical manifest, explicitly selected and verified |
+| C — Staged restore candidate | Newly allocated, independent files in a separate private workspace; never substituted for A or B |
+
+The trusted fixture process provisions synthetic contents and controls both
+workspaces for the entire operation. A path, UUID, `Workspace`, manifest environment
+claim or synthetic flag cannot authenticate a caller or prove data origin. Do not
+accept a public user-supplied path as an authorized restoration target. Copying owner
+or real Beta data into an allowed directory violates the contract; bytes cannot
+reliably reveal that violation. D3 provides no production-data access grant.
+
+Only cooperating trusted fixture processes and private local filesystems are in
+scope. Hostile same-user code, administrators, malicious filesystem substitution,
+network filesystems, custom VFS behavior and arbitrary platform support remain
+outside this facility's assurance. Separate OS/storage capabilities are required
+before any broader deployment can be considered.
+
+## 5. Exact D2 contract and reusable verification
+
+IMPLEMENTED public internal interfaces are `create_workspace(root)`,
+`Workspace.check()`, `encode_manifest(manifest)`, `decode_manifest(text)`, and
+`verify_backup(workspace, destination) -> Manifest`. D3 would use these contracts.
+`create_backup` is not a restore API and is not called by D3.
+
+`create_workspace` exclusively creates a new canonical absolute directory below
+`/private/tmp`, mode 0700, and records device/inode. Private owned intermediate
+directories and root identity are checked. A bundle is a direct workspace child
+named `backup-<canonical UUID>`. Verification requires exactly two private,
+single-link regular files, `backup.virtual.sqlite3` and `manifest.json`.
+
+The frozen manifest contains exactly these fields:
+
+| Field | Implemented constraint |
+| --- | --- |
+| `format_version` | Exact integer 1 |
+| `backup_id` | Canonical UUID, bound to directory name |
+| `artifact` | Exactly `backup.virtual.sqlite3` |
+| `schema_version` | Exact integer 1, 2, 3 or 4 |
+| `environment` | Exactly `SYNTHETIC_FIXTURE_CLAIM` |
+| `completed_at` | Canonical UTC ISO timestamp, six fractional digits, `+00:00` |
+| `byte_size` | Exact integer from 100 bytes to 64 MiB |
+| `sha256` | 64 lowercase hexadecimal characters |
+| `validation` | Exactly `D1-v1-local-HEALTHY` |
+| `implementation` | Exactly `D2-sqlite-backup-v1` |
+| `acknowledgment` | Exactly `UNVERIFIED` |
+
+Encoding is sorted compact ASCII JSON with no trailing newline. Decoding rejects
+duplicate, missing or extra fields, wrong types including boolean integers, invalid
+values and noncanonical re-encoding. The decoder limit is 4096 characters; the
+verifier reads at most 4097 bytes before ASCII decoding.
+
+`verify_backup` validates workspace/bundle paths and exact contents, decodes the
+manifest, binds its ID to the directory, checks artifact length and digest, runs
+complete D1 validation, compares schema versions, rechecks length/digest, and
+rechecks the workspace. It returns only the manifest, not the D1 report. Errors
+are fixed `BackupError` codes, including `LOCAL_<D1 status>`.
+
+Although `_paths` constructs the conventional source filename during verification,
+`verify_backup` does not open or stat that source file. This permits verification
+of a mirrored bundle in an isolated workspace containing no source database.
+
+`_digest`, `_healthy`, `_private`, `_sync` and `_write_manifest` are private helpers.
+The recommended D3 design neither copies them nor imports them. Hashing stays in
+D2. There is no need to change an existing D2 signature for this design.
+
+## 6. Proposed minimal input contract
+
+Conceptual internal operation `stage_candidate` requires:
+
+| Input | Validation and purpose |
+| --- | --- |
+| Original D2 `Workspace` and explicit bundle path | Trusted harness supplies the existing workspace handle; unchanged `verify_backup` enforces its contract |
+| Separate staging `Workspace` | Created explicitly through `create_workspace`; root is new, private and initially empty; distinct and non-nested relative to input workspace |
+| Staging operation UUID | Supplied by the trusted fixture harness; root naming convention `restore-<UUID>` binds this operation to its workspace |
+| Expected format version | Exact integer 1; reject other values before construction |
+| Expected schema version | Exact integer in 1–4; must equal the verified manifest and actual candidate |
+| Optional expected backup ID and SHA-256 | If supplied, both strictly validated and matched; absence means no independent selection pin, not authority |
+| Explicit `max_bytes` | Exact integer 4096 through 64 MiB; may narrow, never widen D2/D1 limits |
+
+The execution context is the trusted offline harness and its provisioning record,
+not a new `authorized=True` field or a synthetic authentication class. The UUID is
+correlation only. Runtime confinement and one-at-a-time scheduling are explicit
+harness requirements, not inferred from those values.
+
+Resource configuration beyond byte limits is discussed in section 18. A hard
+wall-time parameter is not offered without an enforcement mechanism. Unsupported
+requirements fail before staging, rather than becoming decorative metadata.
+
+## 7. Isolated staging workspace
+
+PROPOSED layout, with each placeholder supplied by the trusted fixture process:
+
+```text
+private fixture parent/
+  input-workspace/                    B's existing D2 Workspace
+    source.virtual.sqlite3           A, optional and never opened by D3
+    backup-<backup_id>/               B
+      backup.virtual.sqlite3
+      manifest.json
+  restore-<operation_id>/             C's new D2 Workspace, mode 0700
+    backup-<backup_id>/               candidate bundle, exclusively created 0700
+      backup.virtual.sqlite3         independent inode, mode 0600
+      manifest.json                  original canonical bytes, new inode, 0600
+```
+
+Both roots must obey D2's `/private/tmp` policy. Reject lexical aliases rather than
+silently resolving them into accepted targets. Check canonical containment, current
+UID, restrictive permissions, directory type and device/inode identity at entry and
+before publication/cleanup. Require staging root disjointness from the input root,
+with neither a parent of the other. No repository target, current-directory default,
+owner path, source fallback, active-database location or pre-existing destination is
+accepted. Existing root contents are preserved and cause staging refusal.
+
+Within the exclusive candidate directory use fixed filenames, exclusive creation
+and no-follow opens where supported. Reject symlink components/leaves, hardlinked
+files, sockets, devices, FIFOs and directories substituted for files. Require file
+link count one. Record and compare file device/inode identities and parent identity
+around use. Validate opened descriptors with `fstat` against inspected entries.
+Unsupported required filesystem behavior fails without a permissive fallback.
+
+This is ordinary defensive path checking inside the trusted-process model, not a
+claim of race-free behavior against a same-user adversary. No permission hardening
+is applied to B, and no existing file is overwritten or chmod-ed into acceptance.
+
+## 8. Candidate construction options and recommendation
+
+All mechanisms below are PROPOSED evaluations, not performed operations.
+
+| Mechanism | Preservation and consistency | Verification, metadata, locks and complexity | Decision |
+| --- | --- | --- | --- |
+| Bounded byte-preserving independent copy of completed B | Validated standalone DELETE artifact, no writers/sidecars; original read-only; new target inode | Existing SHA-256 and length remain authoritative for byte equality; retain manifest bytes, create fresh private permissions, do not preserve ownership/xattrs/timestamps; short-read/write and cleanup handling required; do not hold file descriptors across D1 SQLite checks | Recommended under trusted quiescent bundle assumption |
+| SQLite `Connection.backup()` from B | SQLite snapshot consistency with ordinary locks, new target connection | Logical contents may be equivalent without promising byte equality; target is written through SQLite, may require a new digest/manifest provenance model; more connections and lock/error handling; full D1 still required | Unnecessary for an already sealed artifact; not initial D3 |
+| D2 `create_backup` | Designed for A's live consistent snapshot, not restore candidate identity | Requires exact `source.virtual.sqlite3`, opens source snapshot, generates a new backup ID/completion observation; treating B as that source conflates roles | Do not repurpose or rename B to satisfy it |
+| `VACUUM INTO`, serialization/deserialization, platform clone | May rewrite layout or require whole-image memory/new runtime assumptions | Different bytes or platform-specific allocation/durability assumptions; expanded APIs and tests, no existing D2 restore contract | Deferred; no benefit for minimal byte-bound staging |
+| Hardlink or symlink | Shares or redirects the original object | Violates target independence and current single-link/path rules | Rejected |
+
+Byte copying here is safe only for an already completed, verified, privately held
+and quiescent backup, not a live SQLite main file. D2 originally used SQLite's
+backup API to establish that image. D3 must not copy an active database, journal
+set or changing source file and infer consistency from a successful file read.
+
+Use fixed-size bounded reads/writes, at most 64 KiB per chunk, handling short writes
+and checking both expected length and EOF. No `read_bytes()` of the entire artifact,
+`copy2`, hardlink clone, memory SQLite reconstruction or generic copy-tree service.
+Fresh candidate metadata reflects staging, while original `completed_at` stays an
+original backup observation. D3 does not mint a new D2 backup provenance claim.
+
+## 9. Pre-copy, post-copy and result-publication sequence
+
+PROPOSED sequence is deliberately fail-closed:
+
+1. Validate explicit inputs and trusted fixture scheduling. Check both workspace
+   identities, disjointness and initially empty staging root. Record only safe
+   local identity observations; never open A.
+2. Call unchanged `verify_backup` on B. Enforce expected format/schema, optional
+   backup/digest pin and narrower size limit. Stop before construction on failure.
+3. Capture canonical manifest bytes using `encode_manifest` on that verified value.
+   Record B bundle/file identities for substitution detection. Require stable,
+   quiescent files through completion. Canonical re-encoding equals the original
+   bytes because the strict decoder already enforced that equality.
+4. Exclusively create the one candidate bundle directory and artifact file under
+   the staging root. Record call-owned identities before writing. No initialization
+   of virtual schemas occurs.
+5. Copy B's artifact from a checked read-only descriptor into the exclusive file.
+   Enforce the exact expected size, caller byte limit and EOF. Flush/fsync the new
+   artifact and close all byte-copy descriptors before any SQLite diagnostics.
+6. Create the candidate's `manifest.json` exclusively, write the exact canonical
+   original bytes, flush/fsync and close. No D3 success is implied by its existence.
+   A partial manifest or incomplete pair fails the existing D2 verifier.
+7. Verify B again through `verify_backup`; require the same entire manifest and
+   observed object identities. Reject any observed change, even if a replacement
+   pair is independently valid. This supplements the trusted-quiescence assumption.
+8. Call unchanged `verify_backup` on C. This independently checks actual candidate
+   size/digest before D1, exact schema and complete financial replay, then size/digest
+   again after D1. Require its full manifest equal to the one selected in step 2.
+9. Sync the candidate directory and staging root, recheck root/file identities,
+   exact contents, permissions, link counts and absence of sidecars. Re-read bounded
+   canonical manifests for equality if any boundary observation changed; any change
+   rejects rather than blessing a new identity. All required checks must finish.
+10. Return a frozen result referring to C and B separately. Retain C only as an
+    isolated locally validated candidate. There is no rename to A, configuration
+    update, active pointer, writer restart or financial record write.
+
+D2's second artifact digest means pre-copy success alone is never the candidate
+proof. The candidate verifier closes its D1 connection before its final digest.
+Keep unrelated byte descriptors closed during D1: opening/closing a descriptor for
+the same SQLite inode can interfere with process-scoped locking assumptions.
+
+The sequence has no atomic guarantee spanning B, C and the returned Python object.
+Under the supported model, no cooperating writer touches B or C during it. Mutation
+after final verification invalidates the observation. Before any subsequent use,
+an explicit validation-only operation must repeat bundle verification and identity
+comparisons. Hostile mutation between checks is not solved by extra checks.
+
+## 10. Artifact, manifest, candidate and diagnostic identities
+
+| Identity | Source and limits |
+| --- | --- |
+| Original artifact identity | D2 `backup_id` plus fixed artifact filename; caller-selected claim bound by verification |
+| Original manifest identity | Exact canonical manifest bytes / immutable Manifest value; D2 has no independent signed manifest ID |
+| Original artifact digest | D2 `sha256`, verified with actual bytes; not an owner/source identity |
+| Candidate identity | Operation UUID plus candidate-relative bundle/file names; independently allocated file inode is a local guard, not durable lineage |
+| Candidate digest | Verified candidate bytes match the original manifest `sha256`; recorded as an observed matched value only after verification succeeds |
+| Staging-operation identity | Explicit fixture UUID, distinct semantic role from backup ID; no claim of authenticated operator identity |
+| Diagnostic result identity | Deterministic structured value of policy version, bound manifest, candidate reference and ordered results; no additional cryptographic fingerprint required |
+
+Candidate and backup artifact digests should match, while their file objects and
+workspaces must differ. The copied manifest describes the original backup artifact;
+it does not assert that the new directory is the original bundle or a newly created
+backup. Retaining its filename/ID binding is deliberate verifier reuse.
+
+No authoritative source database UUID, generation, owner, trusted backup freshness,
+external acknowledgment boundary or safe-activation property can be derived here.
+`application_id` identifies a format, not a database lineage. An optional digest
+pin is only as trustworthy as the independent process supplying it. An attacker
+able to replace both artifact and manifest may create a coherent different pair.
+SHA-256 does not authenticate its creator. Manifest `completed_at`, latest event
+time and maximum revision are not receipt watermarks.
+
+## 11. Schema v1–v4 and complete financial reconciliation
+
+IMPLEMENTED D1 compares all explicit catalog rows as full `(type, name, tbl_name,
+sql)` tuples without deduplication and all NULL-SQL automatic-index identities
+against the independently specified committed catalog. Preserve D1-A01/A02/A03
+protections. D3 must not substitute older storage constructors' schema maps or a
+new weaker validator. Exact application ID is 1297503281.
+
+| Schema | Required D1 history and compatibility |
+| --- | --- |
+| v1 | Ledger identities, instruments, funding, canonical events, contiguous sequences, cash/shares, book cost and realized P&L |
+| v2 | v1 plus immutable order intent, every command/event association, legal lifecycle, revisions, temporal and idempotency references |
+| v3 | v2 plus complete original reservation creation/denial sequence and matching effects, per-portfolio/instrument availability |
+| v4 | All prior history plus migration baselines, complete evolved order replay, transition outcomes, terminal effects and exact releases across all portfolios |
+
+D1's check order is snapshot, schema, physical, foreign_keys, ledger, orders,
+reservations, transitions. Later-version checks are NOT_APPLICABLE for older
+versions, not invented capabilities. Unsupported versions or exact-schema
+mismatches reject; no v5, auto-upgrade, downgrade or repaired history exists.
+Expected caller version must match the actual version. Old v1/v2/v3 runtime
+rejection of newer versions remains authoritative.
+
+For applicable versions require `available cash = posted cash - active BUY caps`
+and `available shares = posted shares - active SELL quantities`, with exact Decimal
+semantics and nonnegative availability. v4 ACTIVE rows record original creation;
+the active set is derived by subtracting fully reconciled releases. Replaying v3
+alone cannot establish final v4 availability. Denials do not become successes
+retroactively when resources are released. Cross-portfolio corruption fails the
+whole database. Missing events, funding, commands, baselines or releases cannot
+be repaired, guessed, dropped or replaced with zero balances.
+
+D3 reuses this complete validation through D2, which invokes D1 on C itself. It
+does not implement financial arithmetic, collect balances from different snapshots,
+create orders or synthesize missing transactions. A SQL-valid but semantically
+inconsistent candidate fails closed.
+
+## 12. Proposed immutable result and classifications
+
+PROPOSED frozen `StagingResult` contains policy version `D3-staged-validation-v1`,
+operation UUID, candidate-relative reference when allocated, the verified original
+Manifest when available, fixed outcome/issue codes, fixed ordered check outcomes,
+an optional D1 status, acknowledgment UNVERIFIED and cleanup disposition. All nested
+values are immutable. Invalid UUID/path inputs return fixed errors before a trusted
+reference can be formed. Unexpected exceptions never become successful results.
+
+Checks cover input/workspace, original bundle, candidate construction, original
+recheck, candidate verification and final boundaries. Dependent checks remain
+NOT_RUN after failure. Successful `verify_backup` establishes complete local D1
+HEALTHY, but does not expose granular D1 checks. Record that aggregate evidence;
+do not fabricate an unreturned D1 report. Failure `LOCAL_*` preserves the actual
+underlying D1 classification with an ORIGINAL or CANDIDATE stage indicator.
+
+| Outcome / issue class | Meaning |
+| --- | --- |
+| BACKUP_BUNDLE_INVALID | Missing/extra files, absent completion pair, ID/binding or bundle-structure failure |
+| MANIFEST_INVALID | D2 strict decoding/field validation rejected the manifest |
+| ARTIFACT_DIGEST_MISMATCH | Length/digest differs, whether in B or C; distinguish stage |
+| UNSUPPORTED_SCHEMA | D1 rejected schema, or explicit expected schema differs; retain precise fixed issue |
+| CORRUPT | D1 physical/SQLite corruption, with original/candidate stage |
+| INCONSISTENT_HISTORY | D1 foreign-key/canonical/business-history rejection |
+| CANDIDATE_CONSTRUCTION_FAILED | Exclusive create/copy/write/sync failed; no validated candidate |
+| INCOMPLETE_VALIDATION | Unsafe/unavailable path, locks, I/O, resource limit, changed identities or checks unable to finish |
+| LOCALLY_VALIDATED_CANDIDATE | All required checks passed for C in the supported scope at observation only |
+
+Map fixed D2 codes explicitly; never parse arbitrary exception prose or turn an
+unknown code into corruption or success. `ARTIFACT_UNAVAILABLE` is incomplete
+validation unless an earlier structural check established a more specific fact.
+The candidate may not exist on early failures. No global RESTORED, safe-to-trade,
+authorized or activation-approved status is supplied.
+
+Output includes no raw SQL/rows, manifest paths, absolute user paths, financial
+excerpts, credentials, exception text or full-file contents. Private artifact
+digests are internal evidence, not public logs. Diagnostic equality is deterministic
+for the same inputs, policy and stable observed state; distinct operation UUIDs
+produce distinct envelopes. No new run timestamps/durations enter that equality;
+the original manifest's completion observation remains part of its bound value.
+
+## 13. Acknowledgment completeness and activation prohibition
+
+**ACKNOWLEDGMENT COMPLETENESS = UNVERIFIED** for every D3 result, including success.
+No independent durable receipt inventory currently exists. A coherent old backup
+may omit externally acknowledged transactions committed after it. Hashes, D1
+HEALTHY, final revisions, maximum timestamps and manifest completion observations
+cannot establish completeness. Do not advertise any RPO or RTO.
+
+D3 ends after retaining and reporting an isolated validated candidate. The next
+privileged action would be deciding whether to activate an exact candidate under
+an independently approved recovery protocol. That action is absent and forbidden
+here. No live DB replacement, active-path/pointer change, rename-over, operator
+generation mutation, connection restart, worker revocation or trading resumption
+is exposed. A successful D3 result is not an activation capability or approval.
+
+## 14. D4 dependencies and future operator fencing
+
+CONDITIONAL prerequisites from the approved recovery design include authenticated
+named recovery operators, explicit approval bound to the exact candidate, durable
+non-reused recovery generations, serialized operator authority, stale-writer
+fencing, drainage of active transactions/connections and revocation of old write
+capabilities. All writers and idempotent result accesses need transaction-level
+generation/authorization checks under the future approved protocol.
+
+An independent, complete, authenticated receipt inventory must cover protected
+operations through a trusted checkpoint, including in-flight exports. Generation
+metadata restored from the same old DB cannot be its own authority. Renaming a
+file does not revoke old SQLite handles. Activation needs an explicit crash-state
+protocol, durable intent/reference/completion evidence, sync guarantees and tests
+for uncertain switches. Separate independent recovery audit remains required.
+
+These are D4/later prerequisites, not D3 fields, roles, epochs, leases, tables or
+services. Missing evidence keeps activation held. No D4 logic is implemented here.
+
+## 15. Filesystem, consistency and TOCTOU analysis
+
+| Risk | Supported-scope handling | Residual / deployment boundary |
+| --- | --- | --- |
+| Artifact substitution after validation | Require quiescent B; record identity, copy read-only, reverify B and compare entire original manifest, verify C independently | Same-user replace-and-restore between checks is outside assurance |
+| Manifest replacement | Canonical exact-value pin, observed inode checks, repeat original verification; copy selected canonical bytes | Adjacent untrusted manifest is not authenticated origin |
+| Candidate replacement | Exclusive creation, no-follow/type/link checks, identities around use, final D2 digest/replay/digest and boundary checks | No immutable-storage capability or perpetual validity claim |
+| Root replacement / symlink races | Existing `Workspace.check`, canonical ancestry, disjoint roots, reject observed identity changes | Path-based checks are not complete hostile-race prevention |
+| Hardlink aliasing | Single-link regular files, independent destination allocation and differing device/inode pairs | Privileged filesystem actor is outside supported model |
+| Concurrent ordinary writer | Bundle/candidate must be quiescent; D1 observes DELETE with normal locks and rejects sidecars/lock failures | Copy loop itself is not a SQLite snapshot of a live database |
+| Validation-to-use gap | Success is point-in-time; repeat explicit validation before later use | Future activation requires stronger authority and fencing, not only rehashing |
+| Process crash / power loss | Partial pairs are never trusted; uncertain complete pair must be revalidated | Fsync and process tests do not certify power-loss durability |
+
+No `immutable=1`, `nolock=1`, WAL fallback, sidecar deletion or weakening of D2 path
+validation is proposed. This design introduces no generic hostile-file ingestion
+or sandbox claim. A deployment with hostile same-user actors requires separate OS,
+mount and process-isolation controls before reuse.
+
+## 16. Failure, evidence preservation and cleanup
+
+PROPOSED common rules apply to every row below. B and A are never cleaned up or
+modified. Candidate cleanup is permitted only for files exclusively created by
+this call and still matching recorded type/device/inode, inside the same verified
+owned directory. Use fixed-name unlink and an empty-directory `rmdir`, never
+recursive deletion, glob removal or traversal into an unknown entry. The supplied
+staging root belongs to the fixture harness and is retained by the D3 operation.
+
+Unknown files, changed identities, sidecars or ambiguous ownership stop automatic
+cleanup. Cleanup failure is recorded separately from the original failure and
+never converted to success. B is the preserved input evidence; retained C is held
+without eligibility. There is no public diagnostic dump. Interrupted operations
+close owned descriptors/connections; KeyboardInterrupt propagates after cleanup.
+
+| Failure | Result and remaining artifacts | Allowed cleanup and evidence; forbidden action |
+| --- | --- | --- |
+| Missing artifact or manifest | BACKUP_BUNDLE_INVALID; no C | Preserve incomplete B; never create missing input |
+| Incomplete publication / `manifest.pending` / extra entry | BACKUP_BUNDLE_INVALID; no C | Preserve all B evidence; never delete pending files to force acceptance |
+| Wrong artifact filename or backup directory ID | Bundle/manifest binding failure; no C | Preserve B; never rename input into compliance |
+| Invalid manifest, digest or size mismatch | Specific manifest/digest failure; no C if detected first | Preserve pair; never recompute manifest to bless altered data |
+| B changes during staging | INCOMPLETE_VALIDATION with SOURCE_CHANGED; C rejected | Remove only provably call-owned C if safe; retain B as observed; never repair or roll back B |
+| Aliased source/destination, symlink, hardlink or wrong file type | INCOMPLETE_VALIDATION/UNSAFE_PATH | Preserve existing targets; no cleanup of supplied/unknown objects |
+| Permissions or exclusive creation fail | CANDIDATE_CONSTRUCTION_FAILED; possibly empty owned directory | Only owned entries removable; never chmod existing input/destination or overwrite |
+| Disk exhaustion, short write or interrupted copy | Construction failure or propagated interrupt; possible partial C | Close and remove only tracked owned files; input untouched; no partial success |
+| Failure after copy, manifest write or fsync | Construction/incomplete failure; partial or complete-looking pair | No trust from marker; remove safely owned ordinary partial files, otherwise hold |
+| Corrupt C or inconsistent history | CORRUPT or INCONSISTENT_HISTORY; C held | Retain candidate evidence for explicit fixture review; no repair, deletion of bad rows or financial reconstruction writes |
+| Failure during D1, lock or resource limit | INCOMPLETE_VALIDATION unless D1 conclusively classifies corruption/history | Preserve complete C for explicit review; no reduced-scope HEALTHY |
+| Unexpected staging file, sidecar or replaced root | INCOMPLETE_VALIDATION; ownership uncertain | Stop cleanup, preserve unknown entries; never recurse or delete through replaced root |
+| Cleanup permission denial | Original failure plus RETAINED_UNVERIFIED cleanup disposition | Leave residual files, report fixed code; never claim removal or kill other processes |
+| Crash before final result | No returned result; absent, partial or complete-looking C may remain | Harness preserves prior attempt; explicit revalidation required; no marker-only success |
+| Retry after uncertain completion | New construction at same destination rejects DESTINATION_EXISTS | Validate existing C read-only with retained expected identities, or choose new root; never overwrite/delete prior attempt automatically |
+
+No durable D3 completion marker is needed in the minimum design. A byte-complete
+pair can be independently validated after a lost return, but does not prove the
+earlier invocation returned success. Proposed `validate_staged_candidate` repeats
+input pins, original and candidate verification and boundary checks without writes.
+It requires trusted harness provenance and retained workspace/operation identities;
+if that context is lost, hold for fixture review rather than infer ownership from
+a directory name. A prior report is not reused as proof of present file validity.
+
+## 17. Deterministic validation and simplification decisions
+
+Prefer the existing two-file D2 format over a new candidate manifest, signature,
+report hash, publication marker, generic filesystem framework or SQLite copy engine.
+The operation UUID and candidate-relative reference distinguish staging without
+inventing source lineage. Ordered aggregate checks reuse actual verifier outcomes.
+
+No D2 API extension is required for the recommended mirrored-bundle mechanism.
+An alternative single candidate file would need a reviewed public D2 artifact
+verification helper because `_digest`/`_healthy` are private and `verify_backup`
+requires its exact bundle shape. It is rejected as unnecessary scope here.
+If future consumers require the exact D1 `Diagnostic`, a narrow separately approved
+D2 interface returning manifest plus report could avoid another full replay. D3's
+minimum result does not require that extension or pretend it already exists.
+
+Static inspection identified these contract constraints, not a newly reproduced
+production defect. Any later confirmed defect must record component, synthetic
+reproduction and minimum correction in a separate authorized task; it is not fixed
+incidentally during this design phase.
+
+## 18. Resource and runtime limits
+
+PROPOSED retain D2's 64 MiB maximum and strict manifest bound, with an explicit
+`max_bytes` that may be narrower. Preflight size after D2 verification; enforce it
+again during copy and candidate verification. The original D2 verification itself
+still runs with its existing 64 MiB ceiling, even if the caller chooses a smaller
+D3 copy limit. Do not claim the narrower value constrains work already inside D2.
+
+One candidate adds at most one artifact (64 MiB) plus a small manifest and filesystem
+overhead. Keeping A, B and C may consume roughly three artifact-sized files, with
+different A size and metadata overhead; no exact total-capacity guarantee follows.
+Capacity preflight, if available, is advisory. Every write/flush/fsync must handle
+disk exhaustion safely. Do not rely on sparse files, clones or optimistic free-space
+values to reserve capacity.
+
+Copy buffering is bounded, but D1 builds replay state and revisits histories; memory,
+CPU and integrity-check time are not bounded by one buffer or by a byte limit alone.
+Repeated B verification and C verification add full replay cost. `timeout=0` bounds
+lock waiting, not overall runtime, stalled I/O or writer-blocking duration.
+
+Initial harness scheduling permits one active D3 attempt per fixture context. There
+is no production semaphore, worker or concurrency service. Separate attempts with
+distinct roots must remain independent; capacity planning includes all retained
+attempts. Shared/occupied roots reject instead of overwriting or joining work.
+
+Future measured operational limits should cover history/portfolio counts, peak
+memory, wall time, disk capacity and retained attempts. A hard total-runtime service
+guarantee needs separately approved cancellation/supervision and adverse tests.
+No number, watchdog, process import or new exception is approved by this design.
+
+## 19. Proposed offline acceptance matrix
+
+These are **proposed tests only**, not new tests or executions in this task. F1–F4
+mean trusted synthetic fixtures built from exact v1–v4 schemas and committed D2
+bundles in owned temporary roots. P4 is a populated v4 fixture with multiple
+portfolios, funding/trades, active BUY/SELL obligations, denials, nonterminal and
+terminal histories, releases and outcomes. Later implementation tests may create
+such fixtures under separate authorization.
+
+Every case records fixed results, owned-directory inventories and byte/metadata
+comparisons for fixture A/B. Guards block real network, credential files, owner DBs
+and real broker initialization, including child processes. Independent test-only
+hashing and read-only table inspection may serve as oracles. Synthetic corruption
+fixtures must assert their intended alteration actually exists after reopening;
+setup failure is not detection. None of these checks authorizes owner-data access.
+
+| # / category | Fixture setup | Trigger | Expected result | Required evidence and objective pass/fail |
+| --- | --- | --- | --- | --- |
+| 1 Valid v1 | F1, new staging root | Stage | Local candidate | Independent digest equality, D1 HEALTHY v1; later checks NOT_APPLICABLE |
+| 2 Valid v2 | F2 with order history | Stage | Local candidate | Exact v2 and every intent/command/event preserved |
+| 3 Valid v3 | F3 with creations and denials | Stage | Local candidate | Exact v3, unchanged outcomes and resource views |
+| 4 Valid v4 | F4 | Stage | Local candidate | Exact v4, D1 complete transition check PASS |
+| 5 Populated v4 | P4 | Stage | Local candidate | Compare every financial table and full D1 result with the original fixture |
+| 6 Backup preservation | F4, record B bytes/inodes/mode/mtime | Stage success and fault cases | B unchanged | Same bytes and identity/permissions/modification metadata; read atime is not a promised invariant |
+| 7 Manifest preservation | Canonical original manifest bytes recorded | Stage | Exact independent manifest copy | B bytes unchanged; C bytes equal, inodes distinct |
+| 8 Candidate size | F4 and explicit byte limit | Stage, also inject extra/truncated byte | Exact size or rejection | Actual C size equals manifest only on success; both deviations fail |
+| 9 Candidate digest | F4 | Stage | Digest match | Independently compute test-only SHA-256 of C; match original manifest |
+| 10 Complete D1 | P4 and instrumented existing verifier | Stage | Whole-database validation | Observe C passed unchanged D1, all applicable checks PASS; missing replay prevents success |
+| 11 Cash/positions | Synthetic weighted-cost, partial/full sale vectors | Stage | Same reconstructed values | Exact Decimal cash, shares, basis and realized P&L equal known oracles |
+| 12 Order history | Multiple orders/revisions | Stage | Same history | All initial intent, command/event, chronology and terminal snapshots match |
+| 13 Reservations | Active BUY cap and SELL shares, plus denial | Stage | Conservation holds | Posted minus active equals availability; no pending proceeds counted |
+| 14 Releases | Cancellation and expiration plus frozen order | Stage | Exact releases, frozen obligation retained | One full release per valid terminal outcome; no extra release |
+| 15 Outcomes | Committed and failed lifecycle commands | Stage | Original durable outcomes only | Canonical keys/requests match; failed command remains absent |
+| 16 Missing backup | Remove B artifact from fixture | Stage | BACKUP_BUNDLE_INVALID | No candidate directory/file created, no source fallback |
+| 17 Missing manifest | B artifact alone | Stage | BACKUP_BUNDLE_INVALID | No inferred manifest and no staging |
+| 18 Incomplete marker | Pending-only or pending plus final manifest | Stage | Incomplete bundle rejected | Existing pending/extra entries untouched, no acceptance by marker |
+| 19 Corrupt manifest | Duplicate/extra/missing fields, bad types, noncanonical/oversize text | Stage | Manifest/strict input failure | Each malformed form fails unchanged D2 verification, no C |
+| 20 Pair mismatch | Wrong filename, ID, byte size or digest | Stage | Binding/digest rejection | Fixed applicable code; no recomputed manifest to accept it |
+| 21 One-byte change | Valid B then change one artifact byte | Stage | Digest failure | Test oracle confirms changed byte; no C |
+| 22 Truncation | Remove artifact tail | Stage | Digest/invalid artifact failure | Short file observed and rejected, no zero padding |
+| 23 Swapped artifact | Two bundles with distinct known content | Replace artifact only | Digest failure | Different independent digest asserted; no candidate accepted |
+| 24 Swapped manifest | Two distinct backup IDs | Replace manifest only | ID/binding failure | Canonical wrong manifest confirmed, no acceptance |
+| 25 Unsupported schema | Fixture with version 5, wrong app ID or altered catalog; canonical rehashed pair | Stage | Unsupported schema | D1 fails despite matching digest; no migration or repair |
+| 26 SQL-valid corruption | P4 with wrong release amount or cross-scope history, rehash fixture pair | Stage | Inconsistent history | First assert SQLite integrity/FKs still pass; complete D1 rejects |
+| 27 Aliasing | Same/nested roots or destination equal to B | Stage | Unsafe path | Before/after contents unchanged; construction never starts |
+| 28 Symlinks | Ancestor/leaf/bundle/manifest symlink cases | Stage or swap at controlled barrier | Rejection | No dereferenced target writes or deletion; target unchanged |
+| 29 Hardlink boundary | Hardlinked input or injected C file | Stage/validate | Rejection | Link count and inode evidence; B never shares a candidate inode |
+| 30 Permissions | Nonprivate directory/file, wrong-owner observation, denied create | Stage | Unsafe/construction failure | No chmod workaround, no overwrite, fixed sanitized issue |
+| 31 Unexpected destination | Existing C or unknown file under stage root | Stage | Destination/structure rejection | Existing bytes preserved; no recursive cleanup |
+| 32 Disk full | Fail each copy, manifest write and sync barrier | Stage | Construction/incomplete failure | No success, tracked residual disposition accurate, B unchanged |
+| 33 Interrupted copy | Fault/KeyboardInterrupt after chosen chunk | Stage | Failure/interrupt | Descriptors close; owned partial cleanup or explicit retention; no success |
+| 34 Failure after copy | Fault before/after manifest and final sync | Stage | No returned success | Complete-looking pair alone is not accepted; retained files revalidated separately |
+| 35 D1 failure | Inject unavailable/semantic failure during candidate replay | Stage | Preserve actual local failure or incomplete | Dependent checks NOT_RUN, no aggregate HEALTHY |
+| 36 Partial cleanup | Owned partial C with injected normal failure | Cleanup | Only owned files removed | Exact inventory, source unchanged, no leaked descriptors |
+| 37 Unknown file preservation | Insert unknown entry or replace owned file before cleanup | Cleanup | Retain ambiguous directory | Unknown bytes/target survive, cleanup code reports retention |
+| 38 Uncertain completion | Child exits before final return at partial and complete barriers | Retry creation, then explicit validation | Creation refuses occupied root; valid pair may revalidate locally | Prior artifacts unchanged; no fabricated proof earlier success was returned |
+| 39 Determinism | Same candidate, retained operation identity and pins | Repeat validation | Equal frozen results | Equal ordered checks/status/reference and immutable nested values |
+| 40 Post-verification change | Mutate C after one successful result | Explicit validation again | Rejection, old result no authority | Changed digest/identity observed, no reuse of stale report |
+| 41 A preservation | Guard A against open; also make A absent after D2 fixture creation | Stage | Valid B still stageable | Zero A open attempts, existing A bytes unchanged |
+| 42 B preservation under failures | F4 and fault schedule | Fail each phase | B unchanged | Byte and inode/mode/mtime comparisons, zero B write opens |
+| 43 No migration | F1–F4, forbidden migration/initializer call canaries | Stage | Version unchanged | Zero migration/initialization calls, original exact catalog retained |
+| 44 No activation | Guard active-path/configuration/writer operations | Stage success | Candidate only | No rename-over, config writes, active pointer or worker start |
+| 45 No fencing implementation | Static import/API inspection plus mutation canaries | Stage | No operator control | No epoch/lease/generation/authorization service or mutation |
+| 46 No receipt assumptions | Old healthy fixture with later work represented only by test oracle | Stage | Local only, loss remains unverified | No invented receipt or inference from timestamps/maxima |
+| 47 Acknowledgment UNVERIFIED | Success and every failure family | Inspect result | Always UNVERIFIED | Exact field value; no READY/RESTORED/activation approval |
+| 48 No owner DB access | Fake rejected owner-shaped paths, real-file deny guard | Stage invalid paths and valid fixtures | Guard remains untriggered | Zero actual owner DB access and no fallback; rejection before SQLite |
+| 49 No broker initialization | Import/constructor deny canaries | Import/stage/failure | No broker dependency | Zero real and mock broker constructions in D3 tests |
+| 50 No network | Socket/DNS/HTTP guards inherited by children | All proposed tests | Offline only | Zero real transmissions and zero unexpected attempts |
+
+Additional required cross-cases: manifest replacement after preflight; source/root
+replacement during copy; candidate replacement during verification; unexpected
+FIFO/device/file type; cleanup permission denial; byte-limit exact boundary and
+oversize; distinct simultaneous attempts and occupied-root race; WAL/sidecars and
+lock contention; optional pin mismatch; expected format/schema type rejection;
+report sanitization and private-path canaries. These assert observed race rejection
+without advertising protection against every hostile same-user schedule.
+
+## 20. Import and dependency preflight
+
+IMPLEMENTED accounting AST policy allows `dataclasses`, `datetime`, `decimal`,
+`enum`, `uuid`, `re`, `pathlib`, `contextlib`, `json`, `os`, `sqlite3`, and `stat`.
+Only `execution_contracts.py` also permits `typing`/`zoneinfo`. Only the exact path
+`magi/virtual/backup.py` permits `hashlib`. That exception does not transfer to D3.
+The test is a static virtual-package import rule, not a general process sandbox.
+
+PROPOSED `magi/virtual/staged_restore.py` needs only approved imports such as
+`dataclasses`, `enum`, `pathlib`, `os`, `stat`, and `re`, plus relative imports of
+existing `backup` and UUID validation from `models`. Built-in bounded file I/O,
+`os.open` with exclusive/no-follow flags, `os.fstat`, `os.fsync`, `Path.lstat`,
+`mkdir`, `unlink` and empty-directory `rmdir` cover the selected mechanism.
+All cryptographic validation stays behind `backup.verify_backup`.
+
+No new dependency or import-policy exception is proposed. No `hashlib` import in
+D3, copied hash routine, dynamic import, shell hashing, subprocess worker, `shutil`,
+`tempfile`, native locking or forbidden-library workaround is required. Test-only
+fixtures may use existing test tooling without granting production import rights.
+Any later need for a hard-timeout worker or new API must be separately authorized;
+it cannot be smuggled into this design as a policy relaxation.
+
+## 21. Proposed implementation package and review gate
+
+Recommend one next implementation milestone, followed by an independent audit:
+
+| Expected file | Proposed work |
+| --- | --- |
+| `magi/virtual/staged_restore.py` | Narrow synthetic stage and read-only revalidation functions, frozen result, existing D2 reuse, fixed ownership-aware cleanup |
+| `tests/test_virtual_staged_restore.py` | Matrix above, fault barriers, uncertain-return child cases, import/isolation guards and independent preservation oracles |
+| `docs/virtual-staged-restore-validation.md` | Actual implemented contract, supported runtime, validation results and remaining limitations |
+
+No changes to D1, D2, storage, schemas, imports policy, existing tests, dependencies,
+README or initializers are technically required by the selected design. Existing
+tests must remain in regression scope. These paths are proposed future authorization,
+not authorized edits now. If implementation reveals a genuine required shared
+change, stop to document it before expanding the milestone.
+
+Splitting the code into manifest/hash/copy/recovery frameworks would add interfaces
+without independent capability. Keep construction and read-only revalidation in one
+module; independent audit is the separate gate. D4 and activation stay separate.
+Exit criteria are all objective tests, complete offline regression under established
+guards, preservation of D1/D2 behavior, and independent review of cleanup/race claims.
+
+## 22. Critical Beta blockers and future dependencies
+
+D3 implementation and independent audit are still absent. Future activation depends
+on D4 authority/receipts/generations/fencing and D5 recovery audit, proven storage
+durability and operating procedures. No approved retention, RPO/RTO, encryption/key
+policy, authentic source registry or activation crash protocol exists here.
+
+Other blockers remain authenticated users/team grants, physical owner/Beta runtime
+isolation, trusted time/calendar/price authority and licensed data, v4 admission and
+chronological creation/release semantics, trusted settlement, competition/equity and
+corporate-action handling, cost limits and release approval. Package C cannot admit
+new reservations on v4 or fill orders. Failed commands absent from durable history
+are not durable denials. Full business reconciliation remains mandatory.
+
+No recovery checksum or local HEALTHY result removes these blockers.
+
+## 23. README maintenance and open decisions
+
+README was reviewed and is unchanged. Its virtual status table ends at Package A,
+its limitations still say active reservations/atomic operations are absent, and its
+roadmap lists Package B as proposed. Its latest regression record is Package A's
+historical 1,563 tests / 1,176 subtests. A future authorized maintenance task should:
+
+- Record committed Package B v3 reservations and Package C v4 atomic transitions
+  and releases, including old-runtime rejection and absent v4 admission/settlement.
+- Link D1 complete read-only diagnostics and D2 synthetic backups, explaining their
+  local-only HEALTHY, DELETE/private-filesystem scope and acknowledgment UNVERIFIED.
+- Label this D3 document design-only; staging and activation are not implemented.
+- Distinguish current code from older milestone limitations and historical regression
+  records; historical counts are not fresh test executions.
+- Preserve owner/Beta separation, authenticated admission and trusted settlement
+  gaps, recovery/D4 gates and the separately approved closed-Beta roadmap.
+- Retain Project MAGI internally and MOIRAI only as a proposed public brand.
+
+Decisions for design review are the mirrored-bundle approach, aggregate rather than
+full embedded D1 diagnostics, explicit expected-version/pin inputs, one-at-a-time
+fixture scheduling, retention of complete failed candidates versus owned partial
+cleanup, and trusted context retention for uncertain returns. Broader runtime
+budgets, production provenance, receipt authority and activation are separate future
+decisions. None needs an implementation or policy change during this design task.
+
+## 24. Design-only verification record and stopping point
+
+Baseline branch/HEAD, empty staging and clean working tree were checked before
+work; this document did not exist. Review used local source/schema/test/document
+inspection. No application import, SQLite connection, fixture construction, backup,
+restore, migration, provider request or broker construction was needed. No runtime
+tests were run because source inspection resolved the interface questions without
+performing the prohibited backup/restore operations.
+
+Historical evidence supplied for D2: developer full regression **1,965 tests and
+1,249 subtests**, independent focused **530 tests and 166 subtests**, independent
+adversarial **121 checks**. These were not rerun or newly certified by this task.
+
+Documentation checks passed for all 24 numbered sections, all 50 acceptance rows,
+14 relative file links, table/fence structure, whitespace including this untracked
+file, secret patterns and sensitive local paths. Static import-policy preflight
+passed across all 15 virtual Python modules without importing them. The complete
+new document was read directly and reviewed for implemented/proposed capability
+accuracy; ordinary Git diff omits its untracked contents. Tracked differences and
+staging remained empty. These are documentation/static checks, not runtime tests.
+
+The real `.env` is neither read nor changed; only ignore status and metadata are
+observed. No database is opened, no credential is read, no broker is initialized
+and no live network request is attempted. No test-only adapter is constructed.
+Workflow-owned `caffeinate -i` is maintained during work and removed at completion,
+with assertion removal checked and permanent power settings untouched.
+
+Expected final Git status is exactly:
+
+```text
+?? docs/virtual-staged-restore-design.md
+```
+
+HEAD remains the D2 baseline, staging stays empty, and no other file changes.
+No commit or push occurs. Next action is review of this design, then separately
+authorized synthetic D3 implementation and independent audit. D4, activation,
+owner-data operations and frontend development remain outside the milestone.
