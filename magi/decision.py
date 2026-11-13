@@ -2,11 +2,27 @@
 
 import json
 import math
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
 from enum import Enum
 from typing import Optional, Tuple
 
-from magi.provider import ProviderUnavailable
+from magi.provider import ProviderUnavailable, MAX_ATTEMPTS
+
+
+DIAGNOSTIC_CODES = frozenset((
+    'provider_timeout', 'provider_transport_error', 'provider_authentication_failed',
+    'provider_rate_limited', 'provider_service_unavailable', 'provider_server_error',
+    'provider_error', 'unsupported_candidate', 'blocked_response', 'missing_candidate',
+    'incomplete_response', 'invalid_completion_metadata', 'unsupported_completion',
+    'unsupported_content', 'empty_response', 'invalid_json', 'invalid_schema',
+    'unsupported_content_blocks', 'json_decoding_failure', 'schema_validation_failure',
+))
+
+
+def validate_attempts(value):
+    """SDK invocation count; zero is legacy unknown, never an observed count."""
+    if type(value) is not int or not 0 <= value <= MAX_ATTEMPTS:
+        raise ValueError('Invalid provider attempt count')
 
 
 class Position(str, Enum):
@@ -39,8 +55,17 @@ class AgentResult:
     error: Optional[str] = None
     attempts: int = 0
     http_status: Optional[int] = None
+    # Non-decision metadata; legacy history stores do not persist this field.
+    diagnostic_code: Optional[str] = field(default=None, compare=False)
 
     def __post_init__(self):
+        validate_attempts(self.attempts)
+        if self.http_status is not None and (
+                type(self.http_status) is not int or not 100 <= self.http_status <= 599):
+            raise ValueError('Invalid HTTP status')
+        if self.diagnostic_code is not None and (
+                type(self.diagnostic_code) is not str or self.diagnostic_code not in DIAGNOSTIC_CODES):
+            raise ValueError('Invalid failure diagnostic code')
         for value in (self.agent, self.provider, self.model):
             if not isinstance(value, str) or not value.strip():
                 raise ValueError('Agent identity must be nonempty text')
@@ -78,7 +103,10 @@ class AgentResult:
         return self.availability == Availability.AVAILABLE and self.position != Position.ABSTAIN
 
     def __str__(self):
-        return json.dumps(asdict(self), indent=2, ensure_ascii=False, allow_nan=False)
+        data = asdict(self)
+        # Preserve legacy serialized results and artifact identities when absent.
+        if self.diagnostic_code is None: data.pop('diagnostic_code')
+        return json.dumps(data, indent=2, ensure_ascii=False, allow_nan=False)
 
 
 DECISION_INSTRUCTIONS = '''
@@ -139,8 +167,9 @@ def parse_decision(text, agent, provider, model):
 def provider_failure(result, agent, provider, model):
     """Adapt the transport helper's failure into the same agent decision contract."""
     if isinstance(result, ProviderUnavailable):
-        return unavailable_result(agent, provider, model, 'provider_unavailable:' + result.reason,
-                                  result.attempts, result.status_code)
+        return replace(unavailable_result(agent, provider, model, 'provider_unavailable:' + result.reason,
+                                          result.attempts, result.status_code),
+                       diagnostic_code=result.diagnostic_code)
     return None
 
 
@@ -149,7 +178,8 @@ def reconcile_result(result, previous):
     if result.availability != Availability.AVAILABLE:
         if previous.has_answer:
             return replace(previous, availability=Availability.STALE, changed_position=None,
-                           error=result.error, attempts=result.attempts, http_status=result.http_status)
+                           error=result.error, attempts=result.attempts, http_status=result.http_status,
+                           diagnostic_code=result.diagnostic_code)
         return result
     changed = result.position != previous.position if previous.has_answer else None
     return replace(result, changed_position=changed)

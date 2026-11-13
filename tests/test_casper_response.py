@@ -3,7 +3,7 @@ import json
 import httpx
 import anthropic
 import unittest
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from types import SimpleNamespace as NS
 from unittest.mock import patch
 
@@ -40,7 +40,7 @@ class CasperResponseTests(unittest.TestCase):
 
     def test_completed(self):
         r,d=response_result(response(),1)
-        self.assertEqual(r,parse_decision(body(),'Casper','Anthropic','claude-sonnet-4-6'))
+        self.assertEqual(r,replace(parse_decision(body(),'Casper','Anthropic','claude-sonnet-4-6'), attempts=1))
         self.assertIsNone(d.failure_category);self.assertEqual(d.content_blocks,(('text',1),))
         self.assertEqual((d.provider,d.model,d.max_tokens,d.output_tokens,d.attempts),
                          ('Anthropic','claude-sonnet-4-6',3072,100,1))

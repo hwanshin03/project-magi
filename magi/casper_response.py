@@ -1,9 +1,9 @@
 """Anthropic completion checks and bounded, text-free in-memory diagnostics."""
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import json
 
-from magi.decision import _unique_object, parse_decision, unavailable_result
+from magi.decision import _unique_object, parse_decision, unavailable_result, validate_attempts
 
 MODEL = 'claude-sonnet-4-6'
 MAX_TOKENS = 3072
@@ -35,6 +35,7 @@ def response_result(message, attempts, *, provider_failure=None):
     Only a natural completed text response is eligible for strict parsing.
     AgentResult's existing public failure contract remains unchanged.
     """
+    validate_attempts(attempts)
     stop = _category(getattr(message, 'stop_reason', None), _STOPS)
     usage = getattr(getattr(message, 'usage', None), 'output_tokens', None)
     tokens = usage if type(usage) is int and 0 <= usage <= MAX_TOKENS else None
@@ -46,6 +47,8 @@ def response_result(message, attempts, *, provider_failure=None):
         diagnostic = CasperDiagnostic(stop, tokens, tuple(sorted(counts.items())), category, attempts)
         if result is None:
             result = unavailable_result('Casper', 'Anthropic', MODEL, 'invalid_response')
+        if provider_failure is None:
+            result = replace(result, attempts=attempts, diagnostic_code=category)
         return result, diagnostic
 
     if provider_failure is not None: return finish('provider_failure', provider_failure)

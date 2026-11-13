@@ -85,6 +85,11 @@ def render_report(result):
                       'Agent-reported confidence (not calibrated): '+str(agent.confidence),
                       'Rationale:', _quote(agent.reasoning)])
         if agent.error: lines.append('Failure: '+_text(agent.error))
+        lines.append('Failure diagnostic: '+_text(agent.diagnostic_code or 'not available'))
+        attempts = agent.attempts if type(agent.attempts) is int and 1 <= agent.attempts <= 3 else None
+        status = agent.http_status if type(agent.http_status) is int and 100 <= agent.http_status <= 599 else None
+        lines.append('Observed provider attempts: '+str(attempts if attempts is not None else 'not available'))
+        lines.append('Observed HTTP status: '+str(status if status is not None else 'not available'))
         lines.extend(['Risks / counterarguments:', *[_quote(r) for r in agent.key_risks]] if agent.key_risks else ['Risks: none supplied; absence is not evidence of safety.'])
         lines.extend(['Evidence gaps:', *[_quote(g) for g in agent.evidence_gaps]] if agent.evidence_gaps else ['Agent evidence gaps: none supplied.'])
     lines.extend(['', '## Bullish and bearish arguments', '',

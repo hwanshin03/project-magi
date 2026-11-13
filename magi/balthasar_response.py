@@ -1,11 +1,11 @@
 """Gemini-only completion checks and immutable, content-free diagnostics."""
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import json
 import math
 
 from google.genai import types
-from magi.decision import _unique_object, parse_decision, unavailable_result
+from magi.decision import _unique_object, parse_decision, unavailable_result, validate_attempts
 
 MODEL = 'gemini-2.5-flash'
 _BLOCKED = frozenset((types.FinishReason.SAFETY, types.FinishReason.RECITATION,
@@ -73,6 +73,7 @@ def response_result(response, attempts, *, provider_failure=None):
     Thought text is ignored; ordinary text parts concatenate in original order.
     Diagnostics never retain any response, prompt, signature, or exception text.
     """
+    validate_attempts(attempts)
     candidates = getattr(response, 'candidates', None)
     candidate_count = len(candidates) if isinstance(candidates, list) else None
     candidate = candidates[0] if candidate_count == 1 else None
@@ -97,6 +98,8 @@ def response_result(response, attempts, *, provider_failure=None):
             counts['thought'], text_present, *tokens, extraction, json_status, schema, category, attempts)
         if result is None:
             result = unavailable_result('Balthasar', 'Gemini', MODEL, 'invalid_response')
+        if provider_failure is None:
+            result = replace(result, attempts=attempts, diagnostic_code=category)
         return result, diagnostic
 
     if provider_failure is not None: return finish('provider_failure', provider_failure)
