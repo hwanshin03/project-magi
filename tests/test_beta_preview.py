@@ -99,7 +99,7 @@ class PreviewTests(unittest.TestCase):
         for key, saved in self.reports.items():
             result, _ = saved
             body = app.detail(key, saved)
-            self.assertIn(f'<h2>{result.vote.final_action.value}</h2>', body)
+            self.assertIn(f'<h2>{app.outcome_label(result.vote.final_action.value)}</h2>', body)
             self.assertIn(f'BUY {result.vote.buy_votes} · HOLD {result.vote.hold_votes} · SELL {result.vote.sell_votes}', body)
 
     def test_evidence_and_source_identity_preserved(self):
@@ -156,7 +156,7 @@ class PreviewTests(unittest.TestCase):
         result = replace(result, agent_results=(first, *result.agent_results[1:]), artifact_id='')
         body = app.detail('demo-hold', (result, attack))
         self.assertIn('&lt;script&gt;', body)
-        self.assertFalse(any(tag in {'script', 'img', 'iframe'} for tag, _ in Tags(body).tags))
+        self.assertFalse(any(tag in {'script', 'iframe'} or (tag == 'img' and _.get('src') != '/assets/fate-circle.svg') for tag, _ in Tags(body).tags))
         self.assertFalse(any(k.startswith('on') for _, attrs in Tags(body).tags for k in attrs))
 
     def test_safe_source_links(self):
@@ -181,7 +181,7 @@ class PreviewTests(unittest.TestCase):
         with patch.object(app, 'resolve', side_effect=hostile):
             body = app.detail('demo-hold', self.reports['demo-hold'])
         self.assertIn('&lt;img', body)
-        self.assertFalse(any(tag == 'img' for tag, _ in Tags(body).tags))
+        self.assertFalse(any(tag == 'img' and _.get('src') != '/assets/fate-circle.svg' for tag, _ in Tags(body).tags))
 
     def response(self, path='/', host='127.0.0.1:8765', method='GET'):
         handler = object.__new__(app.Handler)
@@ -207,6 +207,41 @@ class PreviewTests(unittest.TestCase):
     def test_no_execution_endpoint(self):
         self.assertIn('405 Method Not Allowed', self.response('/execute', method='POST'))
         self.assertIn('disabled', app.page('/', self.reports)[1])
+
+    def test_company_route_uses_validated_evidence(self):
+        status, body = app.page('/companies/DEMO', self.reports)
+        self.assertEqual(status, 200)
+        for phrase in ('120000000 USD', 'Exchange not supplied', 'Market data unavailable', 'fictional-annual-report'):
+            self.assertIn(phrase, body)
+        self.assertEqual(app.page('/companies/NVDA', self.reports)[0], 404)
+        self.assertEqual(app.page('/companies/DEMO', {'demo-hold': None})[0], 503)
+
+    def test_search_preserves_query_and_escapes_input(self):
+        self.assertIn('demo-hold', app.page('/reports?ticker=Example%20Compute', self.reports)[1])
+        body = app.page('/reports?ticker=%22%3E%3Cscript%3E', self.reports)[1]
+        self.assertNotIn('<script>', body)
+        self.assertIn('Reset search', body)
+        self.assertIn('&quot;&gt;&lt;script&gt;', body)
+        self.assertIn('demo-hold', app.page('/reports?ticker=', self.reports)[1])
+
+    def test_feedback_specimens_do_not_claim_active_execution(self):
+        status, body = app.page('/preview/states', self.reports)
+        self.assertEqual(status, 200)
+        self.assertIn('Static UI specimens', body)
+        self.assertIn('No research or model request is running', body)
+
+    def test_logo_and_font_allowlist(self):
+        response = self.response('/assets/fate-circle.svg')
+        self.assertIn('200 OK', response)
+        self.assertIn('image/svg+xml', response)
+        self.assertIn("img-src 'self'", response)
+        for path in ('/assets/../app.py', '/assets/fate-circle.svg?x=1', '/assets/fonts/Cinzel-OFL.txt'):
+            self.assertIn('404 Not Found', self.response(path))
+        body = app.page('/', self.reports)[1]
+        images = [attrs for tag, attrs in Tags(body).tags if tag == 'img']
+        self.assertEqual(len(images), 1)
+        self.assertEqual(images[0]['src'], '/assets/fate-circle.svg')
+        self.assertEqual(images[0]['width'], '400')
 
     def test_runtime_guard_rejects_side_effects_without_attempting_them(self):
         for event, args in [('socket.connect', ()), ('socket.getaddrinfo', ()), ('socket.gethostbyaddr', ()),
