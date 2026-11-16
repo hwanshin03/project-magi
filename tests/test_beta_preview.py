@@ -6,6 +6,7 @@ from io import BytesIO
 import json
 import os
 from pathlib import Path
+import re
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -101,6 +102,68 @@ class PreviewTests(unittest.TestCase):
             body = app.detail(key, saved)
             self.assertIn(f'<h2>{app.outcome_label(result.vote.final_action.value)}</h2>', body)
             self.assertIn(f'BUY {result.vote.buy_votes} · HOLD {result.vote.hold_votes} · SELL {result.vote.sell_votes}', body)
+
+    def test_small_gold_text_contrast(self):
+        css = (app.ROOT / 'static' / 'style.css').read_text()
+        color = re.search(r'--gold-text:(#[0-9a-f]{6})', css).group(1)
+        paper = re.search(r'--paper:(#[0-9a-f]{6})', css).group(1)
+        def luminance(hex_color):
+            rgb = [int(hex_color[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+            return sum(weight * (c / 12.92 if c <= .04045 else ((c + .055) / 1.055) ** 2.4)
+                       for weight, c in zip((.2126, .7152, .0722), rgb))
+        for background in ('#ffffff', paper):
+            foreground, surface = sorted((luminance(color), luminance(background)))
+            self.assertGreaterEqual((surface + .05) / (foreground + .05), 4.7)
+        self.assertIn('.badge,.perspectives .eyebrow {color:var(--gold-text)', css)
+        self.assertIn('--gold:#c3a56b;', css)
+
+    def test_library_explains_completeness_without_verification_claim(self):
+        for path in ('/reports', '/reports?ticker=missing'):
+            body = app.page(path, self.reports)[1]
+            for phrase in ('Complete is not the same as verified.', 'required participation and result conditions',
+                           'Agent availability:', 'Eligible directional votes:', 'Source verification:',
+                           'Synthetic demonstration:', 'not current market data', 'distinct from HOLD',
+                           'not evidence of safety', 'agent interpretations are not verified facts'):
+                self.assertIn(phrase, body)
+            self.assertIn('<details><summary>How report statuses work</summary>', body)
+            self.assertFalse(any(tag == 'script' or attrs.get('role') == 'button'
+                                 for tag, attrs in Tags(body).tags))
+
+    def test_complete_consensus_has_no_redundant_machine_label(self):
+        body = app.detail('demo-hold', self.reports['demo-hold'])
+        consensus = body.split('<section class="consensus">')[1].split('</section>')[0]
+        self.assertEqual(consensus.count('<h2>HOLD</h2>'), 1)
+        self.assertNotIn('<small>HOLD</small>', consensus)
+        self.assertIn('BUY 0 · HOLD 3 · SELL 0', consensus)
+        self.assertIn('3 eligible directional votes', consensus)
+        self.assertIn('Full MAGI analysis report', body)
+
+    def test_partial_consensus_retains_exact_status_and_no_directional_votes(self):
+        body = app.detail('demo-partial', self.reports['demo-partial'])
+        consensus = body.split('<section class="consensus">')[1].split('</section>')[0]
+        self.assertIn('<h2>Insufficient participation</h2>', consensus)
+        self.assertIn('<small>INSUFFICIENT_PARTICIPATION</small>', consensus)
+        self.assertIn('BUY 0 · HOLD 0 · SELL 0', consensus)
+        self.assertIn('0 eligible directional votes', consensus)
+        statuses = [attrs for tag, attrs in Tags(body).tags if attrs.get('class') == 'agent-status']
+        self.assertEqual([(s['data-availability'], s['data-position']) for s in statuses],
+                         [('AVAILABLE', 'ABSTAIN'), ('UNAVAILABLE', 'NO VOTE'), ('UNAVAILABLE', 'NO VOTE')])
+
+    def test_agent_status_polish_preserves_risks_failures_and_provenance(self):
+        for key, saved in self.reports.items():
+            body = app.detail(key, saved)
+            statuses = [attrs for tag, attrs in Tags(body).tags if attrs.get('class') == 'agent-status']
+            for agent, status in zip(saved[0].agent_results, statuses, strict=True):
+                self.assertEqual(status['data-availability'], agent.availability.value)
+                self.assertEqual(status['data-position'], agent.position.value if agent.position else 'NO VOTE')
+                for value in (*agent.key_risks, *agent.evidence_gaps, agent.error, agent.diagnostic_code):
+                    if value:
+                        self.assertIn(app.text(value), body)
+            self.assertIn(app.text(saved[1]), body)
+            self.assertIn('120000000 USD', body)
+            for group in saved[0].selection.common_core:
+                for ref in (*group.units, *group.citations):
+                    self.assertIn(ref.object_id, body)
 
     def test_evidence_and_source_identity_preserved(self):
         saved = self.reports['demo-hold']

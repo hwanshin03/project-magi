@@ -117,7 +117,7 @@ def detail(key, saved):
         risks = ''.join(f'<li>{text(x)}</li>' for x in a.key_risks) or '<li>No risks supplied; this does not establish safety.</li>'
         gaps = ''.join(f'<li>{text(x)}</li>' for x in a.evidence_gaps) or '<li>None supplied.</li>'
         agent_cards.append(f'''<article class="card agent agent-{a.agent.lower()}"><p class="eyebrow">{text(ROLES[a.agent])}</p><h3>{text(a.agent)}</h3>
-{badge(a.availability.value)}<div class="outcome">{text(a.position.value if a.position else 'NO VOTE')}</div>
+<div class="agent-status" data-position="{text(a.position.value if a.position else 'NO VOTE')}" data-availability="{text(a.availability.value)}">{badge(a.availability.value)}<div class="outcome">{text(a.position.value if a.position else 'NO VOTE')}</div></div>
 <p>{text(a.reasoning or 'No validated response. This agent did not participate in the vote.')}</p>
 <p class="muted">Vote eligible: {text(a.vote_eligible)} · {text(a.provider)} / {text(a.model)}</p>
 <p>Failure: {text(a.error or 'None')} · Diagnostic: {text(a.diagnostic_code or 'Not supplied')}</p>
@@ -125,11 +125,13 @@ def detail(key, saved):
     observations, sources = selected_evidence(result)
     availability = ''.join(f'<li>{text(a.family.value)}: {text(a.state.value)} {text(", ".join(a.error_codes))}</li>' for a in result.universe.availability)
     warnings = ''.join(f'<li>{text(w)}</li>' for w in result.warnings)
+    technical_status = (f'<small>{text(result.vote.final_action.value)}</small>'
+                        if outcome_label(result.vote.final_action.value) != result.vote.final_action.value else '')
     body = f'''<a class="back" href="/reports">← Research library</a><p class="eyebrow">SYNTHETIC REPORT · {text(CATALOG[key])}</p>
 <h1>Example Compute <span class="ticker">DEMO / US</span></h1>
 <p class="lead">Fictional company · Research as-of <time datetime="{text(result.request.as_of.isoformat())}">{text(result.request.as_of.strftime("%d %b %Y · %H:%M UTC"))}</time> · Historical annual evidence</p>
 <div class="notice">All financial values, agent interpretations and citations below are invented fixtures. No live models ran. Source URLs are deliberately non-resolving examples.</div>
-<section class="consensus"><div><p class="eyebrow">Saved deterministic consensus</p><h2>{text(outcome_label(result.vote.final_action.value))}</h2><small>{text(result.vote.final_action.value)}</small></div>
+<section class="consensus"><div><p class="eyebrow">Saved deterministic consensus</p><h2>{text(outcome_label(result.vote.final_action.value))}</h2>{technical_status}</div>
 <p>BUY {result.vote.buy_votes} · HOLD {result.vote.hold_votes} · SELL {result.vote.sell_votes}<br>{sum(a.vote_eligible for a in result.agent_results)} eligible directional votes · Required agreement: {result.vote.required_votes}</p></section>
 <section><h2>Independent agent analysis</h2><p>Agent interpretations are not verified facts. Availability and voting eligibility are distinct.</p><div class="cards">{''.join(agent_cards)}</div></section>
 <section><h2>Financial evidence <small>synthetic</small></h2><p>Bounded selected evidence only; no financial facts are inferred from agent prose. Scroll within the table for all columns →</p><div class="table-scroll" role="region" aria-label="Historical financial evidence" tabindex="0"><table><caption>Selected financial evidence · fictional FY2025 data</caption><thead><tr><th scope="col">Observation</th><th scope="col" class="number">Reported value</th><th scope="col">Historical period</th></tr></thead><tbody>{''.join(observations) or '<tr><td colspan="3">No selected financial evidence. No values are invented to fill gaps.</td></tr>'}</tbody></table></div></section>
@@ -156,7 +158,16 @@ def page(path, reports):
     if url.path == '/reports':
         query = parse_qs(url.query, keep_blank_values=True).get('ticker', [''])[0].strip()[:100]
         visible = reports if query.casefold() in ('', 'demo', 'example compute') else {}
-        return 200, layout('Research library', '<p class="eyebrow">PREPARED SYNTHETIC REPORTS</p><h1>Research library</h1><p class="lead">Read the evidence. Understand the perspectives.</p>' + search(query) + cards(visible), '/reports')
+        explanation = '''<section class="notice"><h2>Complete is not the same as verified.</h2>
+<p>A complete MAGI report satisfies the required participation and result conditions. It does not establish factual accuracy, current valuation or source completeness.</p></section>
+<details><summary>How report statuses work</summary><ul>
+<li><strong>Report completeness:</strong> complete and partial describe the saved report's participation and result conditions, not independent verification.</li>
+<li><strong>Agent availability:</strong> AVAILABLE means a validated response was saved. UNAVAILABLE means no validated response; it contributes no vote and is not evidence of safety.</li>
+<li><strong>Eligible directional votes:</strong> eligible BUY, HOLD and SELL responses count toward agreement. ABSTAIN is an available response that contributes no directional vote; it is distinct from HOLD and from an unavailable response.</li>
+<li><strong>Source verification:</strong> references identify provenance, not guaranteed correctness. Review the source, evidence and limitations separately; agent interpretations are not verified facts.</li>
+<li><strong>Synthetic demonstration:</strong> these fictional reports illustrate presentation and voting states only. Financial values, interpretations and citations are invented fixtures, not current market data. No live models ran.</li>
+</ul></details>'''
+        return 200, layout('Research library', '<p class="eyebrow">PREPARED SYNTHETIC REPORTS</p><h1>Research library</h1><p class="lead">Read the evidence. Understand the perspectives.</p>' + search(query) + cards(visible) + explanation, '/reports')
     if url.path == '/tickers':
         return 200, layout('Tickers', '<p class="eyebrow">COMPANY COVERAGE</p><h1>Company library</h1><p class="lead">A focused universe. Evidence you can inspect.</p>' + search() + '<div class="table-scroll" role="region" aria-label="Company coverage" tabindex="0"><table><caption>Local synthetic coverage · no real security coverage is established</caption><thead><tr><th scope="col">Company</th><th scope="col">Ticker / market</th><th scope="col">Coverage</th><th scope="col">Research</th></tr></thead><tbody><tr><td>Example Compute<br><small>Fictional company</small></td><td>DEMO / US</td><td>Synthetic · historical FY2025</td><td><a class="text-link" href="/companies/DEMO">View company research ↗</a></td></tr></tbody></table></div>', '/tickers')
     if url.path == '/companies/DEMO':

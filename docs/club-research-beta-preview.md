@@ -105,7 +105,8 @@ CSP retains default-src 'none', same-origin styles, base-uri 'none' and frame-an
 Isolated worktree: `/private/tmp/project-moirai-ui-0.2`.
 Branch: `codex/moirai-figma-ui-0.2`.
 Recoverable Beta 0.1 checkpoint: `6a5e1d76b72c3eece870cdb45ec83d415c2eabe5`,
-pushed to `origin/codex/club-research-beta-0.1`. UI changes remain uncommitted and unpushed.
+pushed to `origin/codex/club-research-beta-0.1`. UI 0.2 was committed locally as
+`e41da167e67c8dbd01ca6b6b798a9257bc556e19`; the UI branch remains unpushed.
 
 Start from this worktree using the same isolated Python command above, then visit
 http://127.0.0.1:8765. The original preview must not occupy the same port.
@@ -137,7 +138,7 @@ Geist, Geist Mono, Pretendard and notices are unchanged. No font CDN or dependen
 was added. CSP adds only `img-src 'self'` for the fixed logo endpoint; scripts and
 outbound connections remain denied. Exact static filenames are allowlisted.
 
-Validation: 25 pytest tests and 26 subtests; 25 unittest tests. Existing dependency
+Historical UI 0.2 validation: 25 pytest tests and 26 subtests; 25 unittest tests. Existing dependency
 emits one Pydantic deprecation warning. Browser checks cover 8 routes/states at
 1440, 768 and 390px, all without page overflow; search, native keyboard disclosure,
 focus visibility, four local fonts and 200% text enlargement were checked. Browser
@@ -147,5 +148,49 @@ research, model execution, database access or trading was performed.
 
 This is not full accessibility certification: screen-reader announcement behavior
 and a broader translated-content review remain manual follow-up work. Authentication
-is absent. Neither public nor invite-only hosting is approved. Next milestone:
-independent UI/security review, then a separately authorized UI commit.
+is absent. Neither public nor invite-only hosting is approved.
+
+## Accessibility and UI polish — UI 0.2.1
+
+The independent UI 0.2 audit identified three presentation follow-ups. This narrow
+pass changes only rendering, CSS, preview tests and this documentation. It leaves
+the approved Fate Circle SVG, all fonts/licenses, saved fixtures, engine, security
+guard and HTTP boundaries unchanged. Figma was consulted read-only.
+
+Small functional gold text now uses `--gold-text: #85683f`, separately from
+decorative/brand `--gold: #c3a56b`. Relative-luminance contrast against white improves
+from 4.3600:1 to 5.1862:1; against the `#f5f6f8` page surface it improves from
+4.0320:1 to 4.7961:1. The affected demo badges and perspective labels currently sit
+on white. The regression also checks the page background with a 4.7:1 minimum.
+
+The Research Library includes “Complete is not the same as verified.” A native
+`details` / `summary` disclosure separates completeness, availability, eligible
+directional votes, source provenance/verification and fictional demonstration data.
+It remains available for empty search results. No new verification state is added.
+
+Consensus retains one prominent result and its saved vote distribution. Only the
+identical small machine label is omitted for HOLD; the exact
+`INSUFFICIENT_PARTICIPATION` identifier remains alongside its readable label. The
+full escaped MAGI report is unchanged and accessible. Agent status pairs use the
+approved green HOLD (`#13795b`), amber ABSTAIN (`#946e38`) and gray UNAVAILABLE
+(`#697587`) colors on white, with explicit text labels. Their contrast ratios are
+5.3658:1, 4.6188:1 and 4.6718:1 respectively. Availability does not confer vote
+eligibility: the partial fixture still has AVAILABLE / ABSTAIN plus two UNAVAILABLE
+/ NO VOTE responses and zero eligible directional votes. Risks, failures and all
+selected evidence/provenance remain visible.
+
+Executed polish validation: 30 pytest tests with 26 subtests, 30 unittest tests and
+35 additional negative-input/saved-semantics checks passed. The existing Pydantic
+dependency deprecation warning remains. Instrumented offline tests observed zero
+socket connections, DNS, SQLite connections, subprocesses or system commands.
+Browser validation covered eight routes/states at 1440/768/390px (24 captures),
+keyboard Enter/Space disclosure operation, visible focus, search/navigation,
+scrollable financial tables, locally loaded English/Korean fonts and 25 computed
+text-contrast checks. Six primary views also passed actual 200% Chrome page zoom
+(1440px window / 720 CSS pixels / devicePixelRatio 2). No page overflow, page errors
+or external page requests were observed. This is targeted accessibility testing,
+not full WCAG or screen-reader certification.
+
+Polish changes are uncommitted with empty staging, awaiting focused review and
+separate commit/push authorization. Authentication, invites, revocation, secure
+sessions and report-level authorization remain future work; hosting is not approved.
